@@ -1,31 +1,32 @@
 "use client"
 import { AuthForm } from '@/components/auth-form'
-import LoginForm from '@/components/login-form'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { useRouter } from "next/navigation"
 
 const Login = () => {
-    const [isAuthenticated, setIsAuthenticated] = React.useState(false)
-    const [username, setUsername] = React.useState("")
+  const router = useRouter()
 
-    if (!isAuthenticated) {
-        return (
-            <AuthForm
-                onSuccess={(user) => {
-                    setUsername(user)
-                    setIsAuthenticated(true)
-                }}
-            />
-        )
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch("/api/auth/session")
+        if (res.ok) {
+          router.push("/")
+        }
+      } catch {
+        // ignore
+      }
     }
-    return (
-        <div>
-            <AuthForm onSuccess={(user) => {
-                setUsername(user)
-                setIsAuthenticated(true)
-            }} />
-        </div>
-    )
+    check()
+  }, [router])
+
+  return (
+    <AuthForm
+      onSuccess={() => {
+        router.push("/")
+      }}
+    />
+  )
 }
 
 export default Login

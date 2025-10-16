@@ -53,6 +53,7 @@ export interface Task {
 
   files: TaskFile[]
   completed: boolean
+  completedBy?: string
   createdAt: Date
   updatedAt: Date
   ktRecordingLink?: string

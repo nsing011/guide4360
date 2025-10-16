@@ -9,6 +9,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Auto-reset tasks completed more than 24 hours ago
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    await prisma.task.updateMany({
+      where: {
+        completed: true,
+        updatedAt: { lt: cutoff },
+      },
+      data: {
+        completed: false,
+        completedBy: null,
+      },
+    })
+
     const searchParams = request.nextUrl.searchParams
     const search = searchParams.get("search") || ""
     const day = searchParams.get("day") || "all"
@@ -83,6 +96,7 @@ export async function GET(request: NextRequest) {
         requiredName: f.requiredName,
       })),
       completed: task.completed,
+      completedBy: task.completedBy || undefined,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       ktRecordingLink: task.ktRecordingLink || undefined,

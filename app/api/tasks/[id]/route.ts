@@ -46,6 +46,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       username: taskData.username || "",
       password: taskData.password || "",
       completed: taskData.completed,
+      completedBy: taskData.completedBy,
       ktRecordingLink: taskData.ktRecordingLink,
       documentationLink: taskData.documentationLink,
       instructions: taskData.instructions,

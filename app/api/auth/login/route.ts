@@ -15,8 +15,13 @@ export async function POST(request: NextRequest) {
       where: { username },
     })
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return NextResponse.json({ error: "Invalid username or password" }, { status: 401 })
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password)
+    if (!validPassword) {
+      return NextResponse.json({ error: "Incorrect password" }, { status: 401 })
     }
 
     // Create session

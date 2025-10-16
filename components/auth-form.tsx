@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
 interface AuthFormProps {
@@ -19,7 +19,6 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const { toast } = useToast()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,24 +34,27 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
       })
 
       const data = await response.json()
-      router.push("/")
 
       if (!response.ok) {
-        throw new Error(data.error || "Authentication failed")
+        let friendly = data.error || "Authentication failed"
+        if (isLogin) {
+          if (response.status === 404) friendly = "User does not exist. Please sign up first."
+          else if (response.status === 401) friendly = "Incorrect password. Please try again."
+          else if (response.status >= 500) friendly = "Server error during login. Please try again later."
+        }
+        throw new Error(friendly)
       }
 
-      toast({
-        title: isLogin ? "Login successful" : "Registration successful",
-        description: `Welcome, ${username}!`,
-      })
+      toast.success(isLogin ? "Login successful" : "Registration successful")
+      toast(`Welcome, ${username}!`)
 
       onSuccess(username)
+      router.push("/")
     } catch (error) {
-      toast({
-        title: "Authentication failed",
-        description: error instanceof Error ? error.message : "Please try again",
-        variant: "destructive",
-      })
+      const message = error instanceof Error
+        ? error.message
+        : "Network error. Please check your connection and retry"
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }

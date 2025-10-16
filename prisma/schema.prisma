@@ -6,7 +6,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -52,6 +51,7 @@ model Task {
   
   files       TaskFile[]
   completed   Boolean  @default(false)
+  completedBy String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   

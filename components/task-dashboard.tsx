@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { TaskDetailModal } from "@/components/task-detail-modal"
 import { AddTaskModal } from "@/components/add-task-modal"
+import { CompleteTaskDialog } from "@/components/complete-task-dialog"
 import { ThemeToggle } from "@/components/theme-toggle"
 import type { Task } from "@/lib/types"
 
@@ -45,6 +46,8 @@ export function TaskDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set())
   const [user, setUser] = useState<{ username: string } | null>(null)
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false)
+  const [taskToComplete, setTaskToComplete] = useState<{ id: string; name: string; completed: boolean } | null>(null)
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -148,14 +151,29 @@ export function TaskDashboard() {
     }
   }
 
-  const handleTaskComplete = async (taskId: string, completed: boolean) => {
+  const handleTaskComplete = (taskId: string, completed: boolean) => {
+    const task = safeTasks.find(t => t.id === taskId)
+    if (task) {
+      setTaskToComplete({ id: taskId, name: task.retailer, completed })
+      setCompleteDialogOpen(true)
+    }
+  }
+
+  const handleConfirmComplete = async (userName: string) => {
+    if (!taskToComplete) return
+
     try {
-      await fetch(`/api/tasks/${taskId}`, {
+      await fetch(`/api/tasks/${taskToComplete.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed }),
+        body: JSON.stringify({ 
+          completed: taskToComplete.completed,
+          completedBy: taskToComplete.completed ? userName : null
+        }),
       })
       mutate() // Refresh the data
+      setCompleteDialogOpen(false)
+      setTaskToComplete(null)
     } catch (error) {
       console.error("Error updating task:", error)
     }
@@ -327,9 +345,16 @@ export function TaskDashboard() {
                           {task.retailer}
                         </h3>
                         {task.completed && (
-                          <Badge variant="default" className="bg-green-500 w-fit">
-                            Completed
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="default" className="bg-green-500 w-fit">
+                              Completed
+                            </Badge>
+                            {task.completedBy && (
+                              <span className="text-xs text-muted-foreground">
+                                by {task.completedBy}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">{task.day}</p>
@@ -390,6 +415,17 @@ export function TaskDashboard() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onUpdate={() => mutate()}
+      />
+
+      <CompleteTaskDialog
+        isOpen={completeDialogOpen}
+        onClose={() => {
+          setCompleteDialogOpen(false)
+          setTaskToComplete(null)
+        }}
+        onConfirm={handleConfirmComplete}
+        taskName={taskToComplete?.name || ""}
+        isCompleting={taskToComplete?.completed || false}
       />
     </div>
   )
