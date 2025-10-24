@@ -1,15 +1,17 @@
-// Prisma schema for PostgreSQL
+// Prisma schema for MongoDB
+// Copy this entire content and replace the contents of prisma/schema.prisma on your other device
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id             String          @id @default(cuid())
+  id             String          @id @default(auto()) @map("_id") @db.ObjectId
   username       String          @unique
   password       String
   createdAt      DateTime        @default(now())
@@ -20,7 +22,7 @@ model User {
 }
 
 model Task {
-  id          String   @id @default(cuid())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
   retailer    String
   day         String
   fileCount   Int
@@ -33,7 +35,7 @@ model Task {
   // Direct Load fields
   istTime     String?
   estTime     String?
-  sqlQuery    String?  @db.Text
+  sqlQuery    String?  @db.String
   
   // Indirect Load fields
   indirectLoadSource String? // "retailer portal" or "retailer mail"
@@ -60,9 +62,9 @@ model Task {
   
   ktRecordingLink    String?
   documentationLink  String?
-  instructions       String? @db.Text
+  instructions       String?
   
-  userId      String
+  userId      String   @db.ObjectId
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
@@ -70,17 +72,17 @@ model Task {
 }
 
 model TaskFile {
-  id            String @id @default(cuid())
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
   downloadName  String
   requiredName  String
-  taskId        String
+  taskId        String @db.ObjectId
   task          Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   
   @@index([taskId])
 }
 
 model AutomatedTask {
-  id          String   @id @default(cuid())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
   name        String
   description String?
   taskType    String   // e.g., "retailer_data", "inventory_update", "sales_report"
@@ -90,29 +92,28 @@ model AutomatedTask {
   uploadedFile String? // Store file path or filename
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  userId      String
+  userId      String   @db.ObjectId
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
 }
 
 model Pipeline {
-  id           String   @id @default(cuid())
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
   triggerName  String
   description  String?
   shift        String   // "A", "B", or "C"
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  userId       String
+  userId       String   @db.ObjectId
   user         User     @relation("UserPipelines", fields: [userId], references: [id], onDelete: Cascade)
   
-  @@unique([triggerName, shift])
   @@index([userId])
 }
 
 model PipelineMonitoring {
-  id              String   @id @default(cuid())
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
   date            DateTime @default(now())
   shift           String   // "A", "B", or "C"
   triggerName     String
@@ -124,10 +125,10 @@ model PipelineMonitoring {
   currentStatus   String?  // Status after re-run: "RESOLVED", "FAILED_AGAIN", "PENDING"
   resolvedBy      String?  // "L1", "L2", "OPS"
   workingTeam     String?  // "L1_TEAM", "L2_TEAM", "OPS_TEAM", "L1_WORKING", "L2_WORKING", "OPS_WORKING"
-  comments        String?  @db.Text
+  comments        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  userId          String
+  userId          String   @db.ObjectId
   user            User     @relation("UserPipelineMonitoring", fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])

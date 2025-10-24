@@ -232,6 +232,30 @@ export function TaskDashboard() {
           </div>
           <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
             <AddTaskModal onTaskAdded={() => mutate()} />
+            <Button 
+              variant="outline" 
+              onClick={() => router.push("/automated-tasks")}
+              className="gap-2 bg-transparent"
+            >
+              <span className="hidden sm:inline">Automated Tasks</span>
+              <span className="sm:hidden">Auto</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => router.push("/pipelines")}
+              className="gap-2 bg-transparent"
+            >
+              <span className="hidden sm:inline">Pipelines</span>
+              <span className="sm:hidden">Pipes</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => router.push("/monitoring")}
+              className="gap-2 bg-transparent"
+            >
+              <span className="hidden sm:inline">Monitoring</span>
+              <span className="sm:hidden">Monitor</span>
+            </Button>
             <Badge variant="outline" className="hidden sm:inline-flex">
               {selectedTasks.size} selected
             </Badge>
