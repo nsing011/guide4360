@@ -3,11 +3,28 @@
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
-import { ArrowLeft, Search, ChevronUp, ChevronDown } from "lucide-react"
+import { ArrowLeft, Search, ChevronUp, ChevronDown, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { AddPipelineMonitoringModal } from "@/components/add-pipeline-monitoring-modal"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   useReactTable,
   getCoreRowModel,
@@ -56,13 +73,19 @@ const statusColorMap: { [key: string]: string } = {
 
 const currentStatusColorMap: { [key: string]: string } = {
   RESOLVED: "bg-green-100 text-green-800",
-  FAILED_AGAIN: "bg-red-100 text-red-800",
+  UNRESOLVED: "bg-red-100 text-red-800",
+  "FAILED_AGAIN": "bg-red-100 text-red-800",
+  "IN-PROGRESS": "bg-yellow-100 text-xs text-yellow-800",
   PENDING: "bg-yellow-100 text-yellow-800",
 }
 
 export function MonitoringDashboard() {
   const router = useRouter()
   const [globalFilter, setGlobalFilter] = useState("")
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [resolutionDialogOpen, setResolutionDialogOpen] = useState(false)
+  const [pendingResolutionId, setPendingResolutionId] = useState<string | null>(null)
+  const [selectedTeam, setSelectedTeam] = useState<"L1" | "L2" | "OPS" | "">("")
 
   const {
     data: monitoringData = [],
@@ -77,6 +100,49 @@ export function MonitoringDashboard() {
   const handleRecordAdded = () => {
     console.log("Record added, revalidating...")
     mutate()
+  }
+
+  const openResolutionDialog = (id: string) => {
+    setPendingResolutionId(id)
+    setSelectedTeam("")
+    setResolutionDialogOpen(true)
+  }
+
+  const handleConfirmResolution = async () => {
+    if (!pendingResolutionId || !selectedTeam) {
+      toast.error("Please select a team")
+      return
+    }
+
+    setUpdatingId(pendingResolutionId)
+    try {
+      const response = await fetch("/api/pipeline-monitoring", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: pendingResolutionId,
+          currentStatus: "RESOLVED",
+          resolvedBy: selectedTeam,
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const teamName = { L1: "L1 Team", L2: "L2 Team", OPS: "OPS Team" }[selectedTeam] || selectedTeam
+        toast.success(`Pipeline marked as resolved by ${teamName}`)
+        mutate()
+        setResolutionDialogOpen(false)
+      } else {
+        const data = await response.json()
+        toast.error(data.error || "Failed to update status")
+      }
+    } catch (error) {
+      console.error("Error updating status:", error)
+      toast.error("Failed to update pipeline status")
+    } finally {
+      setUpdatingId(null)
+      setPendingResolutionId(null)
+    }
   }
 
   // Define columns
@@ -206,8 +272,41 @@ export function MonitoringDashboard() {
         },
         size: 200,
       },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: (info) => {
+          const row = info.row.original
+          const isUnresolvedOrPending = row.currentStatus === "UNRESOLVED" || row.currentStatus === "PENDING" || row.currentStatus === "IN-PROGRESS"
+          const isAlreadyResolved = row.currentStatus === "RESOLVED"
+          
+          return (
+            <div className="flex gap-2">
+              {isUnresolvedOrPending && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => openResolutionDialog(row.id)}
+                  disabled={updatingId === row.id}
+                  className="gap-1"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {updatingId === row.id ? "Updating..." : "Resolved"}
+                </Button>
+              )}
+              {isAlreadyResolved && (
+                <span className="text-xs text-green-600 font-medium">✓ Resolved</span>
+              )}
+              {!row.currentStatus && (
+                <span className="text-xs text-muted-foreground">N/A</span>
+              )}
+            </div>
+          )
+        },
+        size: 150,
+      },
     ],
-    []
+    [updatingId]
   )
 
   const table = useReactTable({
@@ -384,6 +483,58 @@ export function MonitoringDashboard() {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={resolutionDialogOpen} onOpenChange={setResolutionDialogOpen}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark Pipeline as Resolved</AlertDialogTitle>
+            <AlertDialogDescription>
+              Select the team that resolved this pipeline issue.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Resolved By Team *</label>
+              <Select value={selectedTeam} onValueChange={(value: any) => setSelectedTeam(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="L1">L1 Team</SelectItem>
+                  <SelectItem value="L2">L2 Team</SelectItem>
+                  <SelectItem value="OPS">OPS Team</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedTeam && (
+              <div className="rounded-lg bg-blue-50 p-3 border border-blue-200">
+                <p className="text-sm text-blue-900">
+                  ✓ This pipeline will be marked as resolved by <strong>{
+                    { L1: "L1 Team", L2: "L2 Team", OPS: "OPS Team" }[selectedTeam]
+                  }</strong>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setResolutionDialogOpen(false)
+              setSelectedTeam("")
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmResolution}
+              disabled={!selectedTeam || updatingId !== null}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {updatingId ? "Updating..." : "Confirm Resolution"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

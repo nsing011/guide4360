@@ -200,8 +200,8 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="RESOLVED">RESOLVED</SelectItem>
-                    <SelectItem value="FAILED_AGAIN">FAILED_AGAIN</SelectItem>
-                    <SelectItem value="PENDING">PENDING</SelectItem>
+                    <SelectItem value="UNRESOLVED">UNRESOLVED</SelectItem>
+                    <SelectItem value="IN-PROGRESS">IN-PROGRESS</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -232,9 +232,7 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
                     <SelectItem value="L1_TEAM">L1 Team</SelectItem>
                     <SelectItem value="L2_TEAM">L2 Team</SelectItem>
                     <SelectItem value="OPS_TEAM">OPS Team</SelectItem>
-                    <SelectItem value="L1_WORKING">L1 Team (Working)</SelectItem>
-                    <SelectItem value="L2_WORKING">L2 Team (Working)</SelectItem>
-                    <SelectItem value="OPS_WORKING">OPS Team (Working)</SelectItem>
+                    <SelectItem value="PLATFORM_TEAM">PLATFORM Team</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

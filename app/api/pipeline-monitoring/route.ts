@@ -109,3 +109,64 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create monitoring record" }, { status: 500 })
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id, currentStatus, resolvedBy } = await request.json()
+
+    // Validate required fields
+    if (!id || !id.trim()) {
+      return NextResponse.json({ error: "Record ID is required" }, { status: 400 })
+    }
+
+    if (!currentStatus || !["RESOLVED", "UNRESOLVED", "IN-PROGRESS"].includes(currentStatus)) {
+      return NextResponse.json({ error: "Valid status (RESOLVED, UNRESOLVED, IN-PROGRESS) is required" }, { status: 400 })
+    }
+
+    // Validate resolvedBy only if currentStatus is RESOLVED
+    if (currentStatus === "RESOLVED") {
+      if (!resolvedBy || !["L1", "L2", "OPS"].includes(resolvedBy)) {
+        return NextResponse.json({ error: "When marking as RESOLVED, resolvedBy team (L1, L2, or OPS) is required" }, { status: 400 })
+      }
+    }
+
+    // Verify the record belongs to the user
+    const existingRecord = await prisma.pipelineMonitoring.findFirst({
+      where: {
+        id: id.trim(),
+        userId: session.userId,
+      },
+    })
+
+    if (!existingRecord) {
+      return NextResponse.json({ error: "Record not found" }, { status: 404 })
+    }
+
+    // Update the record
+    const updateData: any = {
+      currentStatus,
+      updatedAt: new Date(),
+    }
+
+    // Only set resolvedBy if currentStatus is RESOLVED
+    if (currentStatus === "RESOLVED" && resolvedBy) {
+      updateData.resolvedBy = resolvedBy
+    }
+
+    const updatedMonitoring = await prisma.pipelineMonitoring.update({
+      where: { id: id.trim() },
+      data: updateData,
+    })
+
+    console.log("Pipeline monitoring record updated:", updatedMonitoring)
+    return NextResponse.json(updatedMonitoring)
+  } catch (error) {
+    console.error("Error updating monitoring record:", error)
+    return NextResponse.json({ error: "Failed to update monitoring record" }, { status: 500 })
+  }
+}

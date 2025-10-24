@@ -121,9 +121,9 @@ model PipelineMonitoring {
   monitoredBy     String   // Username of who monitored
   reRunId         String?
   incNumber       String?  // INC ticket number
-  currentStatus   String?  // Status after re-run: "RESOLVED", "FAILED_AGAIN", "PENDING"
+  currentStatus   String?  // Status after re-run: "RESOLVED", "UNRESOLVED", "IN-PROGRESS"
   resolvedBy      String?  // "L1", "L2", "OPS"
-  workingTeam     String?  // "L1_TEAM", "L2_TEAM", "OPS_TEAM", "L1_WORKING", "L2_WORKING", "OPS_WORKING"
+  workingTeam     String?  // "L1_TEAM", "L2_TEAM", "OPS_TEAM", "PLATFORM_TEAM"
   comments        String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
