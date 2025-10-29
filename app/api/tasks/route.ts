@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
       data: {
         completed: false,
         completedBy: null,
+        completedAt: null,
       },
     })
 
@@ -97,12 +98,15 @@ export async function GET(request: NextRequest) {
       })),
       completed: task.completed,
       completedBy: task.completedBy || undefined,
+      completedAt: task.completedAt || undefined,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
       ktRecordingLink: task.ktRecordingLink || undefined,
       documentationLink: task.documentationLink || undefined,
       instructions: task.instructions || undefined,
       userId: task.userId,
+      schedule: task.schedule || "daily", // Add schedule field
+      scheduleDays: task.scheduleDays || "", // Add scheduleDays field
     }))
 
     return NextResponse.json(transformedTasks)
@@ -148,6 +152,8 @@ export async function POST(request: NextRequest) {
         documentationLink: taskData.documentationLink,
         instructions: taskData.instructions,
         userId: session.userId,
+        schedule: taskData.schedule || "daily", // Add schedule field
+        scheduleDays: taskData.scheduleDays || "", // Add scheduleDays field
         files: {
           create: taskData.files.map((file: any) => ({
             downloadName: file.downloadName,

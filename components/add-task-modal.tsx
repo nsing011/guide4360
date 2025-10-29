@@ -29,6 +29,7 @@ export function AddTaskModal({ onTaskAdded }: AddTaskModalProps) {
     retailer: "",
     day: "",
     loadType: "Direct load" as "Direct load" | "Indirect load",
+    schedule: "daily",  // Add schedule field
     fileCount: 9,
     formats: { xlsx: 3, csv: 4, txt: 1, mail: 1 },
     ktRecordingLink: "",
@@ -178,6 +179,22 @@ export function AddTaskModal({ onTaskAdded }: AddTaskModalProps) {
                       <SelectItem value="Friday">Friday</SelectItem>
                       <SelectItem value="Saturday">Saturday</SelectItem>
                       <SelectItem value="Sunday">Sunday</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="schedule-type" className="mb-1.5">Recurrence Pattern</Label>
+                  <Select value={formData.schedule} onValueChange={(value) => setFormData({ ...formData, schedule: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select recurrence" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily (Every day)</SelectItem>
+                      <SelectItem value="weekly">Weekly (Same day each week)</SelectItem>
+                      <SelectItem value="biweekly">Biweekly (Every 2 weeks)</SelectItem>
+                      <SelectItem value="mon-fri">Mon-Fri (Weekdays only)</SelectItem>
+                      <SelectItem value="mon-sun">Mon-Sun (Full week)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

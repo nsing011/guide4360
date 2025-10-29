@@ -1,15 +1,15 @@
-// Prisma schema for PostgreSQL
+// Prisma schema for MongoDB
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id             String          @id @default(cuid())
+  id             String          @id @default(cuid()) @map("_id")
   username       String          @unique
   password       String
   createdAt      DateTime        @default(now())
@@ -17,10 +17,13 @@ model User {
   automatedTasks AutomatedTask[]
   pipelines      Pipeline[]      @relation("UserPipelines")
   pipelineMonitoring PipelineMonitoring[] @relation("UserPipelineMonitoring")
+  pipelineMonitoringRecords PipelineMonitoringRecord[] @relation("UserPipelineMonitoringRecords")
+
+  @@map("users")
 }
 
 model Task {
-  id          String   @id @default(cuid())
+  id          String   @id @default(cuid()) @map("_id")
   retailer    String
   day         String
   fileCount   Int
@@ -33,7 +36,7 @@ model Task {
   // Direct Load fields
   istTime     String?
   estTime     String?
-  sqlQuery    String?  @db.Text
+  sqlQuery    String?
   
   // Indirect Load fields
   indirectLoadSource String? // "retailer portal" or "retailer mail"
@@ -55,32 +58,56 @@ model Task {
   files       TaskFile[]
   completed   Boolean  @default(false)
   completedBy String?
+  completedAt DateTime?  // Date and time when task was marked complete
+  schedule    String   @default("daily") // "daily", "weekly", "mon-fri", "mon-sun", "biweekly", "custom"
+  scheduleDays String? @default("")  // "mon,tue,wed,thu,fri" for custom schedules
+  executions  TaskExecution[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   ktRecordingLink    String?
   documentationLink  String?
-  instructions       String? @db.Text
+  instructions       String?
   
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
   @@index([completed])
+  @@map("tasks")
 }
 
 model TaskFile {
-  id            String @id @default(cuid())
+  id            String @id @default(cuid()) @map("_id")
   downloadName  String
   requiredName  String
   taskId        String
   task          Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   
   @@index([taskId])
+  @@map("taskFiles")
+}
+
+model TaskExecution {
+  id          String   @id @default(cuid()) @map("_id")
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  executionDate DateTime // Date when task was scheduled to run
+  status      String   @default("pending") // "pending", "completed", "failed", "skipped"
+  completedAt DateTime? // When it was actually completed
+  completedBy String?  // Who completed it
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([taskId])
+  @@index([executionDate])
+  @@unique([taskId, executionDate])
+  @@map("taskExecutions")
 }
 
 model AutomatedTask {
-  id          String   @id @default(cuid())
+  id          String   @id @default(cuid()) @map("_id")
   name        String
   description String?
   taskType    String   // e.g., "retailer_data", "inventory_update", "sales_report"
@@ -94,25 +121,26 @@ model AutomatedTask {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
+  @@map("automatedTasks")
 }
 
 model Pipeline {
-  id           String   @id @default(cuid())
-  triggerName  String
+  id           String   @id @default(cuid()) @map("_id")
+  name         String   @default("") // Pipeline name for Important Pipelines
+  triggerName  String   // Trigger name
   description  String?
-  shift        String   // "A", "B", or "C"
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   userId       String
   user         User     @relation("UserPipelines", fields: [userId], references: [id], onDelete: Cascade)
   
-  @@unique([triggerName, shift])
   @@index([userId])
+  @@map("pipelines")
 }
 
 model PipelineMonitoring {
-  id              String   @id @default(cuid())
+  id              String   @id @default(cuid()) @map("_id")
   date            DateTime @default(now())
   shift           String   // "A", "B", or "C"
   triggerName     String
@@ -124,7 +152,7 @@ model PipelineMonitoring {
   currentStatus   String?  // Status after re-run: "RESOLVED", "UNRESOLVED", "IN-PROGRESS"
   resolvedBy      String?  // "L1", "L2", "OPS"
   workingTeam     String?  // "L1_TEAM", "L2_TEAM", "OPS_TEAM", "PLATFORM_TEAM"
-  comments        String?  @db.Text
+  comments        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   userId          String
@@ -133,4 +161,31 @@ model PipelineMonitoring {
   @@index([userId])
   @@index([date])
   @@index([shift])
+  @@map("pipelineMonitoring")
+}
+
+model PipelineMonitoringRecord {
+  id                              String   @id @default(cuid()) @map("_id")
+  monitoringDate                  DateTime @default(now())
+  shiftIST                        String   // "A", "B", or "C"
+  adfPipelineName                 String
+  adfTriggerName                  String?
+  adfPipelineRunId                String?
+  overallDurationHoursMins        String?
+  overallExecutionStatus          String?  // "SUCCESS", "FAILED", "RUNNING", "PENDING", "NOT_STARTED"
+  monitoredBy                     String?  // Username of who monitored
+  ifFailedAdfRerunId              String?
+  snowIncidentNumber              String?  // SNOW ticket number
+  failureHandled                  String?  // "YES", "NO", "PARTIAL"
+  postResolveDataLoadChecked      String?  // "YES", "NO", "NOT_APPLICABLE"
+  additionalComments              String?
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+  userId                          String
+  user                            User     @relation("UserPipelineMonitoringRecords", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([monitoringDate])
+  @@index([shiftIST])
+  @@map("pipelineMonitoringRecords")
 }

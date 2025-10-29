@@ -117,21 +117,43 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id, currentStatus, resolvedBy } = await request.json()
+    const { id, currentStatus, resolvedBy, incNumber, workingTeam } = await request.json()
 
     // Validate required fields
     if (!id || !id.trim()) {
       return NextResponse.json({ error: "Record ID is required" }, { status: 400 })
     }
 
-    if (!currentStatus || !["RESOLVED", "UNRESOLVED", "IN-PROGRESS"].includes(currentStatus)) {
+    // Check if this is a resolution or incident action
+    const isResolution = currentStatus !== undefined && incNumber === undefined
+    const isIncident = incNumber !== undefined && currentStatus !== undefined
+
+    if (!isResolution && !isIncident) {
+      return NextResponse.json({ error: "Either resolution or incident action must be provided" }, { status: 400 })
+    }
+
+    // Validate currentStatus if provided
+    if ((isResolution || isIncident) && currentStatus && !["RESOLVED", "UNRESOLVED", "IN-PROGRESS"].includes(currentStatus)) {
       return NextResponse.json({ error: "Valid status (RESOLVED, UNRESOLVED, IN-PROGRESS) is required" }, { status: 400 })
     }
 
-    // Validate resolvedBy only if currentStatus is RESOLVED
-    if (currentStatus === "RESOLVED") {
+    // Validate resolvedBy only if resolution action with RESOLVED status
+    if (isResolution && currentStatus === "RESOLVED") {
       if (!resolvedBy || !["L1", "L2", "OPS"].includes(resolvedBy)) {
         return NextResponse.json({ error: "When marking as RESOLVED, resolvedBy team (L1, L2, or OPS) is required" }, { status: 400 })
+      }
+    }
+
+    // Validate incident fields
+    if (isIncident) {
+      if (!incNumber?.trim()) {
+        return NextResponse.json({ error: "Incident number is required" }, { status: 400 })
+      }
+      if (!currentStatus) {
+        return NextResponse.json({ error: "Incident status is required" }, { status: 400 })
+      }
+      if (!workingTeam || !["L1_TEAM", "L2_TEAM", "OPS_TEAM", "PLATFORM_TEAM"].includes(workingTeam)) {
+        return NextResponse.json({ error: "Valid working team (L1_TEAM, L2_TEAM, OPS_TEAM, PLATFORM_TEAM) is required" }, { status: 400 })
       }
     }
 
@@ -149,13 +171,22 @@ export async function PUT(request: NextRequest) {
 
     // Update the record
     const updateData: any = {
-      currentStatus,
       updatedAt: new Date(),
     }
 
-    // Only set resolvedBy if currentStatus is RESOLVED
-    if (currentStatus === "RESOLVED" && resolvedBy) {
-      updateData.resolvedBy = resolvedBy
+    // Handle resolution action
+    if (isResolution) {
+      updateData.currentStatus = currentStatus
+      if (currentStatus === "RESOLVED" && resolvedBy) {
+        updateData.resolvedBy = resolvedBy
+      }
+    }
+
+    // Handle incident action
+    if (isIncident) {
+      updateData.incNumber = incNumber.trim()
+      updateData.currentStatus = currentStatus
+      updateData.workingTeam = workingTeam
     }
 
     const updatedMonitoring = await prisma.pipelineMonitoring.update({

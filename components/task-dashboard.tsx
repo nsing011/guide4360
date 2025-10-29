@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
-import { Search, User, ChevronDown, Filter, SortAsc, SortDesc, LogOut } from "lucide-react"
+import { Search, User, ChevronDown, Filter, SortAsc, SortDesc, LogOut, Calendar, ChevronLeft, ChevronRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -27,11 +27,19 @@ import type { Task } from "@/lib/types"
 const fetcher = async (url: string) => {
   const res = await fetch(url)
   if (!res.ok) {
-    // Ensure SWR surfaces an error instead of passing a non-array JSON to the UI
     const message = await res.text()
     throw new Error(message || `Request failed: ${res.status}`)
   }
   return res.json()
+}
+
+const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+const SCHEDULE_MAP: { [key: string]: number[] } = {
+  daily: [0, 1, 2, 3, 4, 5, 6],
+  "mon-fri": [1, 2, 3, 4, 5],
+  "mon-sun": [1, 2, 3, 4, 5, 6, 0],
+  weekly: [1],
+  biweekly: [1],
 }
 
 export function TaskDashboard() {
@@ -48,6 +56,9 @@ export function TaskDashboard() {
   const [user, setUser] = useState<{ username: string } | null>(null)
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false)
   const [taskToComplete, setTaskToComplete] = useState<{ id: string; name: string; completed: boolean } | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [currentMonth, setCurrentMonth] = useState(new Date())
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -87,7 +98,26 @@ export function TaskDashboard() {
 
   const safeTasks: Task[] = Array.isArray(tasks) ? tasks : []
 
-  const filteredAndSortedTasks = safeTasks
+  // Smart day-of-week filtering with schedule matching
+  const selectedDayOfWeek = selectedDate.getDay()
+  const tasksForSelectedDay = safeTasks.filter((task) => {
+    const scheduleToCheck = (task as any).schedule || "daily"
+    let applicableDays: number[] = []
+
+    if (scheduleToCheck === "custom" && (task as any).scheduleDays) {
+      const dayMap: { [key: string]: number } = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
+      applicableDays = ((task as any).scheduleDays || "").split(",").map((d: string) => dayMap[d.toLowerCase()] || 0)
+    } else {
+      applicableDays = SCHEDULE_MAP[scheduleToCheck] || SCHEDULE_MAP["daily"]
+    }
+
+    return applicableDays.includes(selectedDayOfWeek)
+  })
+
+  // Use filtered tasks for display
+  const tasksToFilter = dayFilter === "calendar" ? tasksForSelectedDay : safeTasks
+
+  const filteredAndSortedTasks = tasksToFilter
     .filter((task) => {
       const matchesLoadType = loadTypeFilter === "all" || task.loadType === loadTypeFilter
       const matchesStatus =
@@ -280,16 +310,34 @@ export function TaskDashboard() {
             <SelectContent>
               <SelectItem value="all">All Days</SelectItem>
               <SelectItem value="Mon - Fri">Mon - Fri</SelectItem>
-                    <SelectItem value="Mon - Sun">Mon - Sun</SelectItem>
-                      <SelectItem value="Monday">Monday</SelectItem>
-                      <SelectItem value="Tuesday">Tuesday</SelectItem>
-                      <SelectItem value="Wednesday">Wednesday</SelectItem>
-                      <SelectItem value="Thursday">Thursday</SelectItem>
-                      <SelectItem value="Friday">Friday</SelectItem>
-                      <SelectItem value="Saturday">Saturday</SelectItem>
-                      <SelectItem value="Sunday">Sunday</SelectItem>
+              <SelectItem value="Mon - Sun">Mon - Sun</SelectItem>
+              <SelectItem value="Monday">Monday</SelectItem>
+              <SelectItem value="Tuesday">Tuesday</SelectItem>
+              <SelectItem value="Wednesday">Wednesday</SelectItem>
+              <SelectItem value="Thursday">Thursday</SelectItem>
+              <SelectItem value="Friday">Friday</SelectItem>
+              <SelectItem value="Saturday">Saturday</SelectItem>
+              <SelectItem value="Sunday">Sunday</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Separate Calendar Filter Button */}
+          <Button
+            variant={dayFilter === "calendar" ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              // If not in calendar mode, enable it
+              if (dayFilter !== "calendar") {
+                setDayFilter("calendar")
+              }
+              // Always toggle calendar visibility
+              setShowCalendar(!showCalendar)
+            }}
+            className="col-span-2 sm:col-span-1"
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            {dayFilter === "calendar" ? `${selectedDate.toLocaleDateString()} (${DAYS_OF_WEEK[selectedDayOfWeek]})` : "📅 By Date"}
+          </Button>
 
           <Select value={loadTypeFilter} onValueChange={setLoadTypeFilter}>
             <SelectTrigger className="w-full lg:w-48">
@@ -332,6 +380,54 @@ export function TaskDashboard() {
         </div>
       </div>
 
+      {/* Calendar Picker */}
+      {dayFilter === "calendar" && showCalendar && (
+        <div className="px-4 sm:px-6 py-4 border-b border-border bg-muted/30">
+          <Card className="w-full max-w-md">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <Button size="sm" variant="ghost" onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-semibold">{currentMonth.toLocaleString("default", { month: "long", year: "numeric" })}</span>
+                <Button size="sm" variant="ghost" onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-7 gap-1 mb-4">
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+                  <div key={day} className="text-center text-xs font-semibold text-muted-foreground py-2">
+                    {day}
+                  </div>
+                ))}
+                {Array.from({ length: new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay() }).map((_, i) => (
+                  <div key={`empty-${i}`}></div>
+                ))}
+                {Array.from({ length: new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate() }).map((_, i) => {
+                  const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i + 1)
+                  const isSelected = date.toDateString() === selectedDate.toDateString()
+                  return (
+                    <button
+                      key={i + 1}
+                      onClick={() => {
+                        setSelectedDate(date)
+                        setShowCalendar(false)
+                      }}
+                      className={`p-2 rounded text-sm font-medium transition-all ${
+                        isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Task Cards */}
       <div className="p-4 sm:p-6">
         {/* Select All Header */}
@@ -369,15 +465,22 @@ export function TaskDashboard() {
                           {task.retailer}
                         </h3>
                         {task.completed && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-2">
                             <Badge variant="default" className="bg-green-500 w-fit">
                               Completed
                             </Badge>
-                            {task.completedBy && (
-                              <span className="text-xs text-muted-foreground">
-                                by {task.completedBy}
-                              </span>
-                            )}
+                            <div className="text-xs text-muted-foreground">
+                              {task.completedBy && (
+                                <div>
+                                  <span className="font-medium">Completed by:</span> {task.completedBy}
+                                </div>
+                              )}
+                              {task.completedAt && (
+                                <div>
+                                  <span className="font-medium">Date & Time (IST):</span> {new Date(task.completedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>

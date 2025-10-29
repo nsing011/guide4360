@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       where: {
         userId: session.userId,
       },
-      orderBy: [{ shift: "asc" }, { triggerName: "asc" }],
+      orderBy: [{ name: "asc" }, { triggerName: "asc" }],
     })
 
     return NextResponse.json(pipelines)
@@ -30,38 +30,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { triggerName, description, shift } = await request.json()
+    const { name, triggerName, description } = await request.json()
+
+    if (!name || !name.trim()) {
+      return NextResponse.json({ error: "Pipeline name is required" }, { status: 400 })
+    }
 
     if (!triggerName || !triggerName.trim()) {
       return NextResponse.json({ error: "Trigger name is required" }, { status: 400 })
     }
 
-    if (!shift || !["A", "B", "C"].includes(shift)) {
-      return NextResponse.json({ error: "Valid shift (A, B, or C) is required" }, { status: 400 })
-    }
-
-    // Check if pipeline already exists for this shift and trigger
-    const existing = await prisma.pipeline.findUnique({
+    // Check if pipeline with this name already exists for this user
+    const existing = await prisma.pipeline.findFirst({
       where: {
-        triggerName_shift: {
-          triggerName: triggerName.trim(),
-          shift,
-        },
+        name: name.trim(),
+        userId: session.userId,
       },
     })
 
     if (existing) {
       return NextResponse.json(
-        { error: "Pipeline with this trigger name already exists for this shift" },
+        { error: "Pipeline with this name already exists" },
         { status: 409 }
       )
     }
 
     const pipeline = await prisma.pipeline.create({
       data: {
+        name: name.trim(),
         triggerName: triggerName.trim(),
         description: description?.trim() || null,
-        shift,
         userId: session.userId,
       },
     })

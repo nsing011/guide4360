@@ -26,19 +26,19 @@ export function AddPipelineModal({ onPipelineAdded }: AddPipelineModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
+    name: "",
     triggerName: "",
     description: "",
-    shift: "",
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.triggerName.trim()) {
-      toast.error("Trigger name is required")
+    if (!formData.name.trim()) {
+      toast.error("Pipeline name is required")
       return
     }
-    if (!formData.shift) {
-      toast.error("Shift is required")
+    if (!formData.triggerName.trim()) {
+      toast.error("Trigger name is required")
       return
     }
 
@@ -54,7 +54,7 @@ export function AddPipelineModal({ onPipelineAdded }: AddPipelineModalProps) {
 
       if (response.ok) {
         toast.success("Pipeline added successfully")
-        setFormData({ triggerName: "", description: "", shift: "" })
+        setFormData({ name: "", triggerName: "", description: "" })
         setIsOpen(false)
         onPipelineAdded()
       } else {
@@ -79,34 +79,31 @@ export function AddPipelineModal({ onPipelineAdded }: AddPipelineModalProps) {
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Add Pipeline</DialogTitle>
+            <DialogTitle>Add Important Pipeline</DialogTitle>
             <DialogDescription>
-              Add a new pipeline trigger to the system. This pipeline will be available for all shifts.
+              Add a new pipeline to monitor across all shifts. Pipeline details will be filled during monitoring.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="triggerName">Trigger Name</Label>
+              <Label htmlFor="name">Pipeline Name *</Label>
               <Input
-                id="triggerName"
-                value={formData.triggerName}
-                onChange={(e) => setFormData({ ...formData, triggerName: e.target.value })}
-                placeholder="e.g., Data_Load_Pipeline"
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., ETL_Daily_Pipeline"
                 required
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="shift">Shift</Label>
-              <Select value={formData.shift} onValueChange={(value) => setFormData({ ...formData, shift: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select shift" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="A">A Shift (6:30 AM - 3:00 PM IST)</SelectItem>
-                  <SelectItem value="B">B Shift (2:20 PM - 11:00 PM IST)</SelectItem>
-                  <SelectItem value="C">C Shift (10:30 PM - 7:00 AM IST)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="triggerName">Trigger Name *</Label>
+              <Input
+                id="triggerName"
+                value={formData.triggerName}
+                onChange={(e) => setFormData({ ...formData, triggerName: e.target.value })}
+                placeholder="e.g., ScheduleTrigger"
+                required
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="description">Description (Optional)</Label>

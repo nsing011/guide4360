@@ -1,21 +1,29 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, Search, ChevronUp, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { AgGridReact } from "ag-grid-react"
-import "ag-grid-community/styles/ag-grid.css"
-import "ag-grid-community/styles/ag-theme-quartz.css"
 import { AddPipelineModal } from "@/components/add-pipeline-modal"
+import {
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  getPaginationRowModel,
+  ColumnDef,
+  flexRender,
+} from "@tanstack/react-table"
+import { Badge } from "@/components/ui/badge"
 
 interface Pipeline {
   id: string
+  name: string
   triggerName: string
   description?: string
-  shift: string
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -35,7 +43,7 @@ const fetcher = async (url: string) => {
 
 export function PipelinesDashboard() {
   const router = useRouter()
-  const [gridApi, setGridApi] = useState<any>(null)
+  const [globalFilter, setGlobalFilter] = useState("")
 
   const {
     data: pipelines = [],
@@ -47,71 +55,81 @@ export function PipelinesDashboard() {
     dedupingInterval: 0,
   })
 
-  useEffect(() => {
-    console.log("Pipelines data updated:", pipelines)
-  }, [pipelines])
-
   const handlePipelineAdded = () => {
     console.log("Pipeline added, revalidating...")
     mutate()
   }
 
-  const columnDefs = [
-    {
-      headerName: "Shift",
-      field: "shift" as any,
-      width: 100,
-      filter: "agSetColumnFilter",
-      cellStyle: { textAlign: "center", fontWeight: "bold" },
+  // Define columns
+  const columns: ColumnDef<Pipeline>[] = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Pipeline Name",
+        size: 200,
+      },
+      {
+        accessorKey: "triggerName",
+        header: "Trigger Name",
+        size: 250,
+      },
+      {
+        accessorKey: "description",
+        header: "Description",
+        cell: (info) => {
+          const description = info.getValue() as string | undefined
+          return description ? (
+            <div className="text-sm max-w-xs truncate" title={description}>
+              {description}
+            </div>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )
+        },
+        size: 300,
+      },
+      {
+        accessorKey: "isActive",
+        header: "Status",
+        cell: (info) => {
+          const isActive = info.getValue() as boolean
+          return (
+            <Badge variant={isActive ? "default" : "secondary"} className={isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+              {isActive ? "Active" : "Inactive"}
+            </Badge>
+          )
+        },
+        size: 120,
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Created Date",
+        cell: (info) => new Date(info.getValue() as string).toLocaleDateString(),
+        size: 150,
+      },
+      {
+        accessorKey: "updatedAt",
+        header: "Last Updated",
+        cell: (info) => new Date(info.getValue() as string).toLocaleDateString(),
+        size: 150,
+      },
+    ],
+    []
+  )
+
+  const table = useReactTable({
+    data: pipelines,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    state: {
+      globalFilter,
     },
-    {
-      headerName: "Trigger Name",
-      field: "triggerName" as any,
-      width: 250,
-      filter: "agTextColumnFilter",
-    },
-    {
-      headerName: "Description",
-      field: "description" as any,
-      width: 300,
-      filter: "agTextColumnFilter",
-      autoHeight: true,
-      wrapText: true,
-    },
-    {
-      headerName: "Status",
-      field: "isActive" as any,
-      width: 120,
-      cellRenderer: (params: any) => (
-        <span
-          style={{
-            padding: "4px 8px",
-            borderRadius: "4px",
-            backgroundColor: params.value ? "#10b981" : "#ef4444",
-            color: "white",
-            fontWeight: "bold",
-          }}
-        >
-          {params.value ? "Active" : "Inactive"}
-        </span>
-      ),
-    },
-    {
-      headerName: "Created Date",
-      field: "createdAt" as any,
-      width: 150,
-      valueFormatter: (params: any) =>
-        new Date(params.value).toLocaleDateString(),
-      filter: "agDateColumnFilter",
-    },
-    {
-      headerName: "Last Updated",
-      field: "updatedAt" as any,
-      width: 150,
-      valueFormatter: (params: any) =>
-        new Date(params.value).toLocaleDateString(),
-    },
-  ] as any
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: "includesString",
+  })
 
   if (error) {
     return (
@@ -139,53 +157,133 @@ export function PipelinesDashboard() {
               <ArrowLeft className="h-4 w-4" />
               Back to Dashboard
             </Button>
-            <h1 className="text-xl font-bold">Pipelines Configuration</h1>
+            <h1 className="text-xl font-bold">Pipeline List</h1>
           </div>
           <AddPipelineModal onPipelineAdded={handlePipelineAdded} />
         </div>
       </header>
 
-      {/* AG Grid Table */}
-      <div className="p-4 sm:p-6">
-        <div 
-          className="ag-theme-quartz"
-          style={{ 
-            height: "600px", 
-            width: "100%",
-            display: "flex",
-            flexDirection: "column"
-          }}
-        >
-          <AgGridReact
-            columnDefs={columnDefs}
-            rowData={pipelines}
-            pagination={true}
-            paginationPageSize={15}
-            enableCellTextSelection={true}
-            suppressHorizontalScroll={false}
-            rowBuffer={10}
-            cacheBlockSize={15}
-            defaultColDef={{
-              sortable: true,
-              resizable: true,
-              floatingFilter: true,
-              filter: true,
-            }}
-            onGridReady={(params) => {
-              console.log("Pipelines grid ready with", pipelines.length, "rows")
-              params.api.sizeColumnsToFit()
-            }}
-          />
+      {/* Search Filter */}
+      <div className="px-4 sm:px-6 py-4 border-b border-border bg-card">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <label className="text-sm font-medium mb-2 block">Search (Trigger Name, Shift...)</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Type to search..."
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          <div className="flex items-end">
+            <Button
+              variant="outline"
+              onClick={() => setGlobalFilter("")}
+            >
+              Clear
+            </Button>
+          </div>
         </div>
+      </div>
 
-        {pipelines.length === 0 && (
+      {/* Table */}
+      <div className="p-4 sm:p-6">
+        {pipelines.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">🔧</div>
             <h3 className="text-lg font-semibold mb-2">No pipelines configured</h3>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-sm mb-6">
               Add your first pipeline to get started
             </p>
+            <AddPipelineModal onPipelineAdded={handlePipelineAdded} />
           </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-muted border-b border-border">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <th
+                          key={header.id}
+                          className="px-4 py-3 text-left font-semibold whitespace-nowrap cursor-pointer hover:bg-muted/80"
+                          onClick={header.column.getToggleSortingHandler()}
+                          style={{ width: header.getSize() }}
+                        >
+                          <div className="flex items-center gap-2">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {header.column.getIsSorted() ? (
+                              header.column.getIsSorted() === "desc" ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronUp className="h-4 w-4" />
+                              )
+                            ) : null}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.length > 0 ? (
+                    table.getRowModel().rows.map((row) => (
+                      <tr key={row.id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                        {row.getVisibleCells().map((cell) => (
+                          <td
+                            key={cell.id}
+                            className="px-4 py-3"
+                            style={{ width: cell.column.getSize() }}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={columns.length} className="px-4 py-12 text-center text-muted-foreground">
+                        <div className="text-6xl mb-4">🔧</div>
+                        <p className="text-lg font-semibold">No pipelines found</p>
+                        <p className="text-sm">Try adjusting your search query</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {table.getRowModel().rows.length > 0 ? table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1 : 0} to{" "}
+                {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getFilteredRowModel().rows.length)} of{" "}
+                {table.getFilteredRowModel().rows.length} pipelines
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

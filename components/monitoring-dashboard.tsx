@@ -86,6 +86,10 @@ export function MonitoringDashboard() {
   const [resolutionDialogOpen, setResolutionDialogOpen] = useState(false)
   const [pendingResolutionId, setPendingResolutionId] = useState<string | null>(null)
   const [selectedTeam, setSelectedTeam] = useState<"L1" | "L2" | "OPS" | "">("")
+  const [actionType, setActionType] = useState<"resolve" | "incident" | null>(null)
+  const [incidentNumber, setIncidentNumber] = useState("")
+  const [incidentStatus, setIncidentStatus] = useState<"UNRESOLVED" | "IN-PROGRESS" | "">("")
+  const [assignedTeam, setAssignedTeam] = useState<"L1_TEAM" | "L2_TEAM" | "OPS_TEAM" | "PLATFORM_TEAM" | "">("")
 
   const {
     data: monitoringData = [],
@@ -102,46 +106,97 @@ export function MonitoringDashboard() {
     mutate()
   }
 
-  const openResolutionDialog = (id: string) => {
+  const openResolutionDialog = (id: string, hasIncident: boolean) => {
     setPendingResolutionId(id)
     setSelectedTeam("")
+    setActionType(null)
+    setIncidentNumber("")
+    setIncidentStatus("")
+    setAssignedTeam("")
     setResolutionDialogOpen(true)
+    if (hasIncident) {
+      setActionType("incident")
+    }
   }
 
   const handleConfirmResolution = async () => {
-    if (!pendingResolutionId || !selectedTeam) {
-      toast.error("Please select a team")
-      return
-    }
+    if (!pendingResolutionId) return
 
-    setUpdatingId(pendingResolutionId)
-    try {
-      const response = await fetch("/api/pipeline-monitoring", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: pendingResolutionId,
-          currentStatus: "RESOLVED",
-          resolvedBy: selectedTeam,
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const teamName = { L1: "L1 Team", L2: "L2 Team", OPS: "OPS Team" }[selectedTeam] || selectedTeam
-        toast.success(`Pipeline marked as resolved by ${teamName}`)
-        mutate()
-        setResolutionDialogOpen(false)
-      } else {
-        const data = await response.json()
-        toast.error(data.error || "Failed to update status")
+    if (actionType === "resolve") {
+      if (!selectedTeam) {
+        toast.error("Please select a team")
+        return
       }
-    } catch (error) {
-      console.error("Error updating status:", error)
-      toast.error("Failed to update pipeline status")
-    } finally {
-      setUpdatingId(null)
-      setPendingResolutionId(null)
+      setUpdatingId(pendingResolutionId)
+      try {
+        const response = await fetch("/api/pipeline-monitoring", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: pendingResolutionId,
+            currentStatus: "RESOLVED",
+            resolvedBy: selectedTeam,
+          }),
+        })
+
+        if (response.ok) {
+          const teamName = { L1: "L1 Team", L2: "L2 Team", OPS: "OPS Team" }[selectedTeam] || selectedTeam
+          toast.success(`Pipeline marked as resolved by ${teamName}`)
+          mutate()
+          setResolutionDialogOpen(false)
+        } else {
+          const data = await response.json()
+          toast.error(data.error || "Failed to update status")
+        }
+      } catch (error) {
+        console.error("Error updating status:", error)
+        toast.error("Failed to update pipeline status")
+      } finally {
+        setUpdatingId(null)
+        setPendingResolutionId(null)
+      }
+    } else if (actionType === "incident") {
+      if (!incidentNumber.trim()) {
+        toast.error("Please enter an incident number")
+        return
+      }
+      if (!incidentStatus) {
+        toast.error("Please select incident status")
+        return
+      }
+      if (!assignedTeam) {
+        toast.error("Please select assigned team")
+        return
+      }
+      setUpdatingId(pendingResolutionId)
+      try {
+        const response = await fetch("/api/pipeline-monitoring", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: pendingResolutionId,
+            incNumber: incidentNumber.trim(),
+            currentStatus: incidentStatus,
+            workingTeam: assignedTeam,
+          }),
+        })
+
+        if (response.ok) {
+          const teamName = { L1_TEAM: "L1 Team", L2_TEAM: "L2 Team", OPS_TEAM: "OPS Team", PLATFORM_TEAM: "PLATFORM Team" }[assignedTeam] || assignedTeam
+          toast.success(`Incident ${incidentNumber} raised and assigned to ${teamName}`)
+          mutate()
+          setResolutionDialogOpen(false)
+        } else {
+          const data = await response.json()
+          toast.error(data.error || "Failed to raise incident")
+        }
+      } catch (error) {
+        console.error("Error raising incident:", error)
+        toast.error("Failed to raise incident")
+      } finally {
+        setUpdatingId(null)
+        setPendingResolutionId(null)
+      }
     }
   }
 
@@ -213,7 +268,7 @@ export function MonitoringDashboard() {
         cell: (info) => {
           const status = info.getValue() as string | undefined
           return status ? (
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${currentStatusColorMap[status] || "bg-gray-100"}`}>
+            <span className={`px-3 py-1 rounded-full text-2xs font-medium whitespace-nowrap ${currentStatusColorMap[status] || "bg-gray-100"}`}>
               {status.replace(/_/g, " ")}
             </span>
           ) : (
@@ -279,14 +334,17 @@ export function MonitoringDashboard() {
           const row = info.row.original
           const isUnresolvedOrPending = row.currentStatus === "UNRESOLVED" || row.currentStatus === "PENDING" || row.currentStatus === "IN-PROGRESS"
           const isAlreadyResolved = row.currentStatus === "RESOLVED"
+          const currentStatusNotSet = !row.currentStatus || row.currentStatus === "-"
+          const hasIncident = row.incNumber ? true : false
+          const canUpdateStatus = isUnresolvedOrPending || currentStatusNotSet
           
           return (
             <div className="flex gap-2">
-              {isUnresolvedOrPending && (
+              {canUpdateStatus && (
                 <Button
                   size="sm"
                   variant="default"
-                  onClick={() => openResolutionDialog(row.id)}
+                  onClick={() => openResolutionDialog(row.id, hasIncident)}
                   disabled={updatingId === row.id}
                   className="gap-1"
                 >
@@ -296,9 +354,6 @@ export function MonitoringDashboard() {
               )}
               {isAlreadyResolved && (
                 <span className="text-xs text-green-600 font-medium">✓ Resolved</span>
-              )}
-              {!row.currentStatus && (
-                <span className="text-xs text-muted-foreground">N/A</span>
               )}
             </div>
           )
@@ -485,35 +540,126 @@ export function MonitoringDashboard() {
       </div>
 
       <AlertDialog open={resolutionDialogOpen} onOpenChange={setResolutionDialogOpen}>
-        <AlertDialogContent className="max-w-md">
+        <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Mark Pipeline as Resolved</AlertDialogTitle>
+            <AlertDialogTitle>
+              {incidentNumber ? "Update Incident Status" : "Pipeline Action"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Select the team that resolved this pipeline issue.
+              {incidentNumber 
+                ? `Incident ${incidentNumber} - Update status or mark as resolved` 
+                : "Choose how to handle this pipeline: mark as resolved or raise an incident"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Resolved By Team *</label>
-              <Select value={selectedTeam} onValueChange={(value: any) => setSelectedTeam(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select team..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="L1">L1 Team</SelectItem>
-                  <SelectItem value="L2">L2 Team</SelectItem>
-                  <SelectItem value="OPS">OPS Team</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Action Selection */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  setActionType("resolve")
+                  setIncidentNumber("")
+                }}
+                className={`p-3 border-2 rounded-lg transition-all ${
+                  actionType === "resolve"
+                    ? "border-green-500 bg-green-50"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <div className="font-semibold text-sm">✓ Mark as Resolved</div>
+                <div className="text-xs text-muted-foreground mt-1">Pipeline is fixed</div>
+              </button>
+
+              {!incidentNumber && (
+                <button
+                  onClick={() => {
+                    setActionType("incident")
+                    setSelectedTeam("")
+                  }}
+                  className={`p-3 border-2 rounded-lg transition-all ${
+                    actionType === "incident"
+                      ? "border-orange-500 bg-orange-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <div className="font-semibold text-sm">⚠️ Raise Incident</div>
+                  <div className="text-xs text-muted-foreground mt-1">Failed again, needs ticket</div>
+                </button>
+              )}
             </div>
-            {selectedTeam && (
-              <div className="rounded-lg bg-blue-50 p-3 border border-blue-200">
-                <p className="text-sm text-blue-900">
-                  ✓ This pipeline will be marked as resolved by <strong>{
-                    { L1: "L1 Team", L2: "L2 Team", OPS: "OPS Team" }[selectedTeam]
-                  }</strong>
-                </p>
+
+            {/* Resolve Option */}
+            {actionType === "resolve" && (
+              <div className="grid gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <label className="text-sm font-medium">Resolved By Team *</label>
+                <Select value={selectedTeam} onValueChange={(value: any) => setSelectedTeam(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select team..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="L1">L1 Team</SelectItem>
+                    <SelectItem value="L2">L2 Team</SelectItem>
+                    <SelectItem value="OPS">OPS Team</SelectItem>
+                  </SelectContent>
+                </Select>
+                {selectedTeam && (
+                  <div className="mt-2 p-2 bg-white rounded text-sm text-blue-900">
+                    ✓ Pipeline will be marked RESOLVED by <strong>{
+                      { L1: "L1 Team", L2: "L2 Team", OPS: "OPS Team" }[selectedTeam]
+                    }</strong>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Incident Option */}
+            {actionType === "incident" && (
+              <div className="grid gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Incident Number (INC) *</label>
+                  <Input
+                    placeholder="e.g., INC0001234567"
+                    value={incidentNumber}
+                    onChange={(e) => setIncidentNumber(e.target.value)}
+                    className="bg-white"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Incident Status *</label>
+                  <Select value={incidentStatus} onValueChange={(value: any) => setIncidentStatus(value)}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Select status..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UNRESOLVED">UNRESOLVED (Not started)</SelectItem>
+                      <SelectItem value="IN-PROGRESS">IN-PROGRESS (Team investigating)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Assigned To Team *</label>
+                  <Select value={assignedTeam} onValueChange={(value: any) => setAssignedTeam(value)}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Select team..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="L1_TEAM">L1 Team</SelectItem>
+                      <SelectItem value="L2_TEAM">L2 Team</SelectItem>
+                      <SelectItem value="OPS_TEAM">OPS Team</SelectItem>
+                      <SelectItem value="PLATFORM_TEAM">PLATFORM Team</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {incidentNumber && incidentStatus && assignedTeam && (
+                  <div className="mt-2 p-2 bg-white rounded text-sm text-orange-900 border border-orange-300">
+                    <div>⚠️ <strong>INC:</strong> {incidentNumber}</div>
+                    <div>📊 <strong>Status:</strong> {incidentStatus.replace(/_/g, " ")}</div>
+                    <div>👥 <strong>Assigned:</strong> {{ L1_TEAM: "L1 Team", L2_TEAM: "L2 Team", OPS_TEAM: "OPS Team", PLATFORM_TEAM: "PLATFORM Team" }[assignedTeam]}</div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -521,16 +667,25 @@ export function MonitoringDashboard() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => {
               setResolutionDialogOpen(false)
+              setActionType(null)
               setSelectedTeam("")
+              setIncidentNumber("")
+              setIncidentStatus("")
+              setAssignedTeam("")
             }}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleConfirmResolution}
-              disabled={!selectedTeam || updatingId !== null}
-              className="bg-green-600 hover:bg-green-700"
+              disabled={
+                !actionType ||
+                (actionType === "resolve" && !selectedTeam) ||
+                (actionType === "incident" && (!incidentNumber.trim() || !incidentStatus || !assignedTeam)) ||
+                updatingId !== null
+              }
+              className={actionType === "resolve" ? "bg-green-600 hover:bg-green-700" : "bg-orange-600 hover:bg-orange-700"}
             >
-              {updatingId ? "Updating..." : "Confirm Resolution"}
+              {updatingId ? "Updating..." : actionType === "resolve" ? "Mark Resolved" : "Raise Incident"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
