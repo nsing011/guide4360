@@ -1,0 +1,15 @@
+{
+  "windowsCompatibility": {
+    "description": "Settings for running Prisma on Windows",
+    "env_variables": {
+      "PRISMA_SKIP_ENGINE_CHECK": "true",
+      "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+    },
+    "instructions": [
+      "1. Create a .env.local file in the project root with: PRISMA_SKIP_ENGINE_CHECK=true",
+      "2. Or run: SET PRISMA_SKIP_ENGINE_CHECK=true && pnpm install (Windows)",
+      "3. Or run: $env:PRISMA_SKIP_ENGINE_CHECK='true'; pnpm install (PowerShell)",
+      "4. The .npmrc file already has strict-ssl=false configured"
+    ]
+  }
+}
