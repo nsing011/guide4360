@@ -82,7 +82,7 @@ export function TaskDashboard() {
     error,
     mutate,
   } = useSWR<Task[]>(
-    `/api/tasks?search=${encodeURIComponent(searchQuery)}&day=${dayFilter}`,
+    `/api/tasks?search=${encodeURIComponent(searchQuery)}&day=${dayFilter === "calendar" ? "all" : dayFilter}`,
     fetcher,
     { refreshInterval: 30000 }, // Refresh every 30 seconds
   )
@@ -100,30 +100,63 @@ export function TaskDashboard() {
 
   // Smart day-of-week filtering with schedule matching
   const selectedDayOfWeek = selectedDate.getDay()
+  const selectedDateString = selectedDate.toDateString() // e.g., "Wed Oct 29 2025"
+  
   const tasksForSelectedDay = safeTasks.filter((task) => {
-    const scheduleToCheck = (task as any).schedule || "daily"
+    // Get the schedule (default to daily)
+    const scheduleToCheck = (task as any).schedule && (task as any).schedule.trim() ? (task as any).schedule : "daily"
     let applicableDays: number[] = []
 
-    if (scheduleToCheck === "custom" && (task as any).scheduleDays) {
+    if (scheduleToCheck === "custom" && (task as any).scheduleDays && (task as any).scheduleDays.trim()) {
       const dayMap: { [key: string]: number } = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
-      applicableDays = ((task as any).scheduleDays || "").split(",").map((d: string) => dayMap[d.toLowerCase()] || 0)
+      applicableDays = ((task as any).scheduleDays || "").split(",").map((d: string) => dayMap[d.toLowerCase()] || 0).filter((d: number) => d !== undefined)
     } else {
       applicableDays = SCHEDULE_MAP[scheduleToCheck] || SCHEDULE_MAP["daily"]
     }
 
-    return applicableDays.includes(selectedDayOfWeek)
+    const matches = applicableDays.includes(selectedDayOfWeek)
+    console.log(`📅 Day ${selectedDayOfWeek} (${DAYS_OF_WEEK[selectedDayOfWeek]}): Task "${(task as any).retailer}" schedule="${scheduleToCheck}" days=[${applicableDays}] matches=${matches}`)
+    
+    // Return true if this task is scheduled for the selected day
+    return matches
+  })
+
+  // Enhance tasks with completion status for the selected date
+  const tasksWithStatus = tasksForSelectedDay.map((task: any) => {
+    const completedDate = task.completedAt ? new Date(task.completedAt).toDateString() : null
+    const isCompletedOnThisDate = completedDate === selectedDateString
+    
+    return {
+      ...task,
+      completedOnThisDate: isCompletedOnThisDate,
+      statusForDate: isCompletedOnThisDate ? "completed" : "pending"
+    }
   })
 
   // Use filtered tasks for display
-  const tasksToFilter = dayFilter === "calendar" ? tasksForSelectedDay : safeTasks
+  const tasksToFilter = dayFilter === "calendar" ? tasksWithStatus : safeTasks
 
   const filteredAndSortedTasks = tasksToFilter
     .filter((task) => {
       const matchesLoadType = loadTypeFilter === "all" || task.loadType === loadTypeFilter
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "completed" && task.completed) ||
-        (statusFilter === "pending" && !task.completed)
+      
+      // In calendar mode, check date-specific completion status
+      // In normal mode, check overall completion status
+      let matchesStatus = true
+      if (statusFilter !== "all") {
+        if (dayFilter === "calendar") {
+          // Calendar mode: use statusForDate (completed or pending for that date)
+          matchesStatus = 
+            (statusFilter === "completed" && (task as any).statusForDate === "completed") ||
+            (statusFilter === "pending" && (task as any).statusForDate === "pending")
+        } else {
+          // Normal mode: use overall completion flag
+          matchesStatus =
+            (statusFilter === "completed" && task.completed) ||
+            (statusFilter === "pending" && !task.completed)
+        }
+      }
+      
       return matchesLoadType && matchesStatus
     })
     .sort((a, b) => {
@@ -460,11 +493,37 @@ export function TaskDashboard() {
                     <div className="flex-1">
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                         <h3
-                          className={`font-semibold text-base sm:text-lg ${task.completed ? "line-through text-muted-foreground" : ""}`}
+                          className={`font-semibold text-base sm:text-lg ${dayFilter !== "calendar" && task.completed ? "line-through text-muted-foreground" : ""}`}
                         >
                           {task.retailer}
                         </h3>
-                        {task.completed && (
+                        
+                        {/* Calendar mode: Show status for selected date */}
+                        {dayFilter === "calendar" && (task as any).statusForDate && (
+                          <div className="flex flex-col gap-2">
+                            <Badge 
+                              variant="default" 
+                              className={(task as any).statusForDate === "completed" ? "bg-green-500" : "bg-yellow-500"}
+                            >
+                              {(task as any).statusForDate === "completed" ? "Completed" : "Pending"}
+                            </Badge>
+                            {(task as any).completedOnThisDate && task.completedBy && (
+                              <div className="text-xs text-muted-foreground">
+                                <div>
+                                  <span className="font-medium">By:</span> {task.completedBy}
+                                </div>
+                                {task.completedAt && (
+                                  <div>
+                                    <span className="font-medium">Time (IST):</span> {new Date(task.completedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Normal mode: Show overall completion status */}
+                        {dayFilter !== "calendar" && task.completed && (
                           <div className="flex flex-col gap-2">
                             <Badge variant="default" className="bg-green-500 w-fit">
                               Completed
