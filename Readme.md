@@ -78,6 +78,8 @@ PRISMA_SKIP_ENGINE_CHECK=true
 JWT_SECRET=your-secret-key-change-in-production
 ```
 
+See `.env.example` for all available configuration options.
+
 ## Available Scripts
 
 - `pnpm dev` - Start development server
@@ -94,6 +96,42 @@ JWT_SECRET=your-secret-key-change-in-production
 - Dashboard with calendar view
 - Authentication (login/register)
 - Real-time updates
+
+## Deployment to Vercel
+
+This project is ready for deployment to Vercel! 
+
+**For complete deployment instructions, see:**
+- 📋 **[VERCEL_DEPLOYMENT_GUIDE.md](./VERCEL_DEPLOYMENT_GUIDE.md)** - Step-by-step deployment guide
+- ✅ **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Checklist to track deployment progress
+
+### Quick Deployment Steps
+
+1. **Prepare code locally**
+   ```bash
+   pnpm build
+   pnpm start
+   ```
+
+2. **Push to Git**
+   ```bash
+   git add .
+   git commit -m "chore: prepare for deployment"
+   git push origin main
+   ```
+
+3. **Deploy on Vercel**
+   - Go to https://vercel.com/new
+   - Import your repository
+   - Add environment variables:
+     - `DATABASE_URL` - Your MongoDB connection string
+     - `JWT_SECRET` - A random 32+ character string
+   - Click Deploy
+
+4. **Verify deployment**
+   - Test login/signup
+   - Create a test task
+   - Confirm data persists
 
 ## Troubleshooting
 
@@ -117,6 +155,11 @@ If you encounter "unable to get local issuer certificate" error:
 - Verify MongoDB URL is correct in `.env.local`
 - Check network access to MongoDB Atlas (IP whitelist)
 - Ensure all required credentials are included
+
+### Build Errors During Deployment
+- Check that `DATABASE_URL` is set in Vercel environment variables
+- Verify MongoDB credentials are URL-encoded
+- See `VERCEL_DEPLOYMENT_GUIDE.md` troubleshooting section
 
 ## Architecture
 
