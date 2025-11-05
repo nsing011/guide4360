@@ -13,7 +13,7 @@
   "dependencies": {
     "@aws-sdk/credential-providers": "^3.535.0",
     "@hookform/resolvers": "^3.10.0",
-    "@mongodb-js/zstd": "^1.2.0",
+    "@mongodb-js/zstd": "^2.1.1",
     "@prisma/client": "^5.13.0",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
