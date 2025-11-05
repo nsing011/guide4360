@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "prisma generate --skip-engine-check || prisma generate || next build",
+    "build": "prisma generate && next build",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
-    "postinstall": "prisma generate --skip-engine-check || echo 'Prisma generate failed - you may need to run it manually on Windows'",
-    "prisma:migrate:deploy": "prisma migrate deploy"
+    "postinstall": "prisma generate || echo 'Prisma generate failed'",
+    "prisma:push": "prisma db push"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
