@@ -142,25 +142,31 @@ model Pipeline {
 model PipelineMonitoring {
   id              String   @id @default(cuid()) @map("_id")
   date            DateTime @default(now())
-  shift           String   // "A", "B", or "C"
+  handledShift    String?  // "A", "B", or "C" (Handled Shift - optional, will be updated)
+  failureShift    String?  // "A", "B", or "C" (Failure Shift - when pipeline failed)
   triggerName     String
   runId           String
   status          String   // "SUCCESS", "FAILED", "RUNNING", "SKIPPED"
-  monitoredBy     String   // Username of who monitored
+  monitoredBy     String   // Username of who noticed/reported the failure
   reRunId         String?
   incNumber       String?  // INC ticket number
   currentStatus   String?  // Status after re-run: "RESOLVED", "UNRESOLVED", "IN-PROGRESS"
-  resolvedBy      String?  // "L1", "L2", "OPS"
+  resolvedBy      String?  // "L1", "L2", "OPS" (Team that resolved)
+  resolvedByUser  String?  // Username of who resolved/re-triggered the pipeline
   workingTeam     String?  // "L1_TEAM", "L2_TEAM", "OPS_TEAM", "PLATFORM_TEAM"
   comments        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  createdBy       String?  // User ID who created this record
+  updatedBy       String?  // User ID who last updated this record
   userId          String
   user            User     @relation("UserPipelineMonitoring", fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
+  @@index([createdBy])
+  @@index([updatedBy])
   @@index([date])
-  @@index([shift])
+  @@index([failureShift])
   @@map("pipelineMonitoring")
 }
 

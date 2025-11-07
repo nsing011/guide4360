@@ -10,9 +10,6 @@ export async function GET(request: NextRequest) {
     }
 
     const pipelines = await prisma.pipeline.findMany({
-      where: {
-        userId: session.userId,
-      },
       orderBy: [{ name: "asc" }, { triggerName: "asc" }],
     })
 

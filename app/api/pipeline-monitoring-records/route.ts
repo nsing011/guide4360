@@ -14,9 +14,7 @@ export async function GET(request: NextRequest) {
     const dateTo = searchParams.get("dateTo")
     const shift = searchParams.get("shift")
 
-    const where: any = {
-      userId: session.userId,
-    }
+    const where: any = {}
 
     if (dateFrom) {
       where.monitoringDate = { ...where.monitoringDate, gte: new Date(dateFrom) }
@@ -74,7 +72,6 @@ export async function POST(request: NextRequest) {
         failureHandled: recordData.failureHandled || null,
         postResolveDataLoadChecked: recordData.postResolveDataLoadChecked || null,
         additionalComments: recordData.additionalComments?.trim() || null,
-        userId: session.userId,
       },
     })
 

@@ -15,10 +15,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Valid shift (A, B, or C) is required" }, { status: 400 })
     }
 
-    // Get all unique pipelines that have been added by this user
+    // Get all unique pipelines
     // Fetch both name and triggerName
     const pipelines = await prisma.pipeline.findMany({
-      where: { userId: session.userId },
       select: { name: true, triggerName: true },
     })
 
@@ -42,7 +41,6 @@ export async function POST(request: NextRequest) {
             shiftIST: shift,
             adfPipelineName: pipeline.name,
             adfTriggerName: pipeline.triggerName, // Include trigger name
-            userId: session.userId,
           },
         })
         createdRecords.push(record)

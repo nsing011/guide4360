@@ -11,11 +11,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const recordData = await request.json()
 
-    // Verify the record belongs to the user
+    // Verify the record exists
     const existingRecord = await prisma.pipelineMonitoringRecord.findFirst({
       where: {
         id: params.id,
-        userId: session.userId,
       },
     })
 

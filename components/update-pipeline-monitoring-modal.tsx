@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -9,126 +9,142 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus } from "lucide-react"
 import { toast } from "sonner"
 
-interface AddPipelineMonitoringModalProps {
-  onRecordAdded: () => void
+interface PipelineMonitoring {
+  id: string
+  date: string
+  handledShift?: string
+  failureShift?: string
+  triggerName: string
+  runId: string
+  status: string
+  monitoredBy: string
+  reRunId?: string
+  incNumber?: string
+  currentStatus?: string
+  resolvedBy?: string
+  resolvedByUser?: string
+  workingTeam?: string
+  comments?: string
+  createdAt: string
 }
 
-export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitoringModalProps) {
-  const [isOpen, setIsOpen] = useState(false)
+interface UpdatePipelineMonitoringModalProps {
+  isOpen: boolean
+  onClose: () => void
+  record: PipelineMonitoring | null
+  onRecordUpdated: () => void
+}
+
+export function UpdatePipelineMonitoringModal({
+  isOpen,
+  onClose,
+  record,
+  onRecordUpdated,
+}: UpdatePipelineMonitoringModalProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    handledShift: "",
-    failureShift: "",
-    triggerName: "",
-    runId: "",
-    status: "",
-    monitoredBy: "",
-    reRunId: "",
-    incNumber: "",
-    currentStatus: "",
-    resolvedBy: "",
-    resolvedByUser: "",
-    workingTeam: "",
-    comments: "",
-  })
+  const [formData, setFormData] = useState<Partial<PipelineMonitoring>>({})
+
+  // Initialize form data when record changes or modal opens
+  useEffect(() => {
+    if (isOpen && record) {
+      setFormData({
+        handledShift: record.handledShift || "",
+        failureShift: record.failureShift || "",
+        triggerName: record.triggerName || "",
+        runId: record.runId || "",
+        status: record.status || "",
+        monitoredBy: record.monitoredBy || "",
+        reRunId: record.reRunId || "",
+        incNumber: record.incNumber || "",
+        currentStatus: record.currentStatus || "",
+        resolvedBy: record.resolvedBy || "",
+        resolvedByUser: record.resolvedByUser || "",
+        workingTeam: record.workingTeam || "",
+        comments: record.comments || "",
+      })
+    }
+  }, [isOpen, record])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.failureShift || !formData.triggerName || !formData.runId || !formData.status || !formData.monitoredBy) {
-      toast.error("Please fill in all required fields")
-      return
-    }
+    if (!record) return
 
     setIsLoading(true)
     try {
-      const response = await fetch("/api/pipeline-monitoring", {
-        method: "POST",
+      const response = await fetch(`/api/pipeline-monitoring/${record.id}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          handledShift: formData.handledShift || null,
+          failureShift: formData.failureShift || null,
+          triggerName: formData.triggerName,
+          runId: formData.runId,
+          status: formData.status,
+          monitoredBy: formData.monitoredBy,
+          reRunId: formData.reRunId || null,
+          incNumber: formData.incNumber || null,
+          currentStatus: formData.currentStatus || null,
+          resolvedBy: formData.resolvedBy || null,
+          resolvedByUser: formData.resolvedByUser || null,
+          workingTeam: formData.workingTeam || null,
+          comments: formData.comments || null,
+        }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        toast.success("Monitoring record added successfully")
-        console.log("Record added successfully:", data)
-        setFormData({
-          handledShift: "",
-          failureShift: "",
-          triggerName: "",
-          runId: "",
-          status: "",
-          monitoredBy: "",
-          reRunId: "",
-          incNumber: "",
-          currentStatus: "",
-          resolvedBy: "",
-          resolvedByUser: "",
-          workingTeam: "",
-          comments: "",
-        })
-        setIsOpen(false)
-        onRecordAdded()
+        toast.success("Record updated successfully")
+        onClose()
+        onRecordUpdated()
       } else {
-        console.error("Server error:", data)
-        toast.error(data.error || "Failed to add monitoring record")
+        toast.error(data.error || "Failed to update record")
       }
     } catch (error) {
-      console.error("Network/parsing error:", error)
-      toast.error("Failed to add monitoring record")
+      console.error("Error updating record:", error)
+      toast.error("Failed to update record")
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Record
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Add Pipeline Monitoring Record</DialogTitle>
-            <DialogDescription>
-              Log a pipeline monitoring record including failure details and resolution status.
-            </DialogDescription>
+            <DialogTitle>Update Pipeline Monitoring Record</DialogTitle>
+            <DialogDescription>Update failure and resolution details for this pipeline</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
             {/* Shift & Failure Information */}
             <div>
-              <h3 className="font-semibold text-sm mb-3 text-muted-foreground">Pipeline Failure Information</h3>
+              <h3 className="font-semibold text-sm mb-3 text-muted-foreground">Shift Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="failureShift">Failure Shift *</Label>
-                  <Select value={formData.failureShift} onValueChange={(value) => setFormData({ ...formData, failureShift: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select failure shift" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A">A (6:30 AM - 3:00 PM IST)</SelectItem>
-                      <SelectItem value="B">B (2:20 PM - 11:00 PM IST)</SelectItem>
-                      <SelectItem value="C">C (10:30 PM - 7:00 AM IST)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="failureShift">Failure Shift (Frozen)</Label>
+                  <Input
+                    id="failureShift"
+                    value={formData.failureShift || ""}
+                    disabled
+                    className="bg-muted"
+                  />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="handledShift">Handled Shift (Optional)</Label>
-                  <Select value={formData.handledShift || ""} onValueChange={(value) => setFormData({ ...formData, handledShift: value })}>
+                  <Label htmlFor="handledShift">Handled Shift</Label>
+                  <Select
+                    value={formData.handledShift || ""}
+                    onValueChange={(value) => setFormData({ ...formData, handledShift: value || null })}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select if known" />
+                      <SelectValue placeholder="Select handled shift" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="A">A (6:30 AM - 3:00 PM IST)</SelectItem>
@@ -142,31 +158,29 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
 
             {/* Pipeline Details */}
             <div className="border-t pt-4">
-              <h3 className="font-semibold text-sm mb-3 text-muted-foreground">Pipeline Details</h3>
+              <h3 className="font-semibold text-sm mb-3 text-muted-foreground">Pipeline Details (Frozen)</h3>
               <div className="grid gap-2 mb-4">
-                <Label htmlFor="triggerName">Trigger Name *</Label>
+                <Label htmlFor="triggerName">Trigger Name (Frozen)</Label>
                 <Input
                   id="triggerName"
-                  value={formData.triggerName}
-                  onChange={(e) => setFormData({ ...formData, triggerName: e.target.value })}
-                  placeholder="Pipeline trigger name"
-                  required
+                  value={formData.triggerName || ""}
+                  disabled
+                  className="bg-muted"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="runId">Run ID *</Label>
+                  <Label htmlFor="runId">Run ID (Frozen)</Label>
                   <Input
                     id="runId"
-                    value={formData.runId}
-                    onChange={(e) => setFormData({ ...formData, runId: e.target.value })}
-                    placeholder="Initial run ID"
-                    required
+                    value={formData.runId || ""}
+                    disabled
+                    className="bg-muted"
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="status">Status *</Label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={formData.status || ""} onValueChange={(value) => setFormData({ ...formData, status: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -186,20 +200,19 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
               <h3 className="font-semibold text-sm mb-3 text-muted-foreground">Monitoring Information</h3>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="monitoredBy">Monitored By *</Label>
+                  <Label htmlFor="monitoredBy">Monitored By (Frozen)</Label>
                   <Input
                     id="monitoredBy"
-                    value={formData.monitoredBy}
-                    onChange={(e) => setFormData({ ...formData, monitoredBy: e.target.value })}
-                    placeholder="Your name/username"
-                    required
+                    value={formData.monitoredBy || ""}
+                    disabled
+                    className="bg-muted"
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="reRunId">Re-Run ID</Label>
                   <Input
                     id="reRunId"
-                    value={formData.reRunId}
+                    value={formData.reRunId || ""}
                     onChange={(e) => setFormData({ ...formData, reRunId: e.target.value })}
                     placeholder="Re-run ID if applicable"
                   />
@@ -210,14 +223,17 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
                   <Label htmlFor="incNumber">INC Number</Label>
                   <Input
                     id="incNumber"
-                    value={formData.incNumber}
+                    value={formData.incNumber || ""}
                     onChange={(e) => setFormData({ ...formData, incNumber: e.target.value })}
                     placeholder="INC ticket number if created"
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="currentStatus">Current Status</Label>
-                  <Select value={formData.currentStatus} onValueChange={(value) => setFormData({ ...formData, currentStatus: value })}>
+                  <Select
+                    value={formData.currentStatus || ""}
+                    onValueChange={(value) => setFormData({ ...formData, currentStatus: value || null })}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Status after re-run" />
                     </SelectTrigger>
@@ -237,7 +253,10 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="grid gap-2">
                   <Label htmlFor="resolvedBy">Resolved By Team</Label>
-                  <Select value={formData.resolvedBy} onValueChange={(value) => setFormData({ ...formData, resolvedBy: value })}>
+                  <Select
+                    value={formData.resolvedBy || ""}
+                    onValueChange={(value) => setFormData({ ...formData, resolvedBy: value || null })}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Resolution team" />
                     </SelectTrigger>
@@ -252,7 +271,7 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
                   <Label htmlFor="resolvedByUser">Resolved By User</Label>
                   <Input
                     id="resolvedByUser"
-                    value={formData.resolvedByUser}
+                    value={formData.resolvedByUser || ""}
                     onChange={(e) => setFormData({ ...formData, resolvedByUser: e.target.value })}
                     placeholder="Name/username who resolved"
                   />
@@ -260,7 +279,10 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="workingTeam">Working Team</Label>
-                <Select value={formData.workingTeam} onValueChange={(value) => setFormData({ ...formData, workingTeam: value })}>
+                <Select
+                  value={formData.workingTeam || ""}
+                  onValueChange={(value) => setFormData({ ...formData, workingTeam: value || null })}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Team status" />
                   </SelectTrigger>
@@ -281,7 +303,7 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
                 <Label htmlFor="comments">Comments</Label>
                 <Textarea
                   id="comments"
-                  value={formData.comments}
+                  value={formData.comments || ""}
                   onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
                   placeholder="Add any additional information or notes"
                   rows={2}
@@ -289,12 +311,12 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Adding..." : "Add Record"}
+              {isLoading ? "Updating..." : "Update Record"}
             </Button>
           </DialogFooter>
         </form>
@@ -302,3 +324,4 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
     </Dialog>
   )
 }
+

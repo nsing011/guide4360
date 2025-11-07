@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { AddPipelineMonitoringModal } from "@/components/add-pipeline-monitoring-modal"
+import { UpdatePipelineMonitoringModal } from "@/components/update-pipeline-monitoring-modal"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,7 +39,8 @@ import {
 interface PipelineMonitoring {
   id: string
   date: string
-  shift: string
+  handledShift?: string
+  failureShift: string
   triggerName: string
   runId: string
   status: string
@@ -47,6 +49,7 @@ interface PipelineMonitoring {
   incNumber?: string
   currentStatus?: string
   resolvedBy?: string
+  resolvedByUser?: string
   workingTeam?: string
   comments?: string
   createdAt: string
@@ -83,6 +86,8 @@ export function MonitoringDashboard() {
   const router = useRouter()
   const [globalFilter, setGlobalFilter] = useState("")
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [updateModalOpen, setUpdateModalOpen] = useState(false)
+  const [selectedRecord, setSelectedRecord] = useState<PipelineMonitoring | null>(null)
   const [resolutionDialogOpen, setResolutionDialogOpen] = useState(false)
   const [pendingResolutionId, setPendingResolutionId] = useState<string | null>(null)
   const [selectedTeam, setSelectedTeam] = useState<"L1" | "L2" | "OPS" | "">("")
@@ -210,26 +215,45 @@ export function MonitoringDashboard() {
         size: 120,
       },
       {
-        accessorKey: "shift",
-        header: "Shift",
+        accessorKey: "failureShift",
+        header: "Failure Shift",
         cell: (info) => {
-          const shift = info.getValue() as string
-          return (
-            <span className="font-semibold text-blue-600">
-              {shift}
+          const failureShift = info.getValue() as string | undefined
+          return failureShift ? (
+            <span className="font-semibold text-red-600 text-sm">
+              {failureShift}
             </span>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
           )
         },
-        size: 80,
+        size: 100,
+      },
+      {
+        accessorKey: "handledShift",
+        header: "Handled Shift",
+        cell: (info) => {
+          const handledShift = info.getValue() as string | undefined
+          return handledShift ? (
+            <span className="font-semibold text-blue-600 text-sm">
+              {handledShift}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 100,
       },
       {
         accessorKey: "triggerName",
         header: "Trigger Name",
+        cell: (info) => <span className="text-sm">{info.getValue()}</span>,
         size: 180,
       },
       {
         accessorKey: "runId",
         header: "Run ID",
+        cell: (info) => <span className="text-sm">{info.getValue()}</span>,
         size: 140,
       },
       {
@@ -238,7 +262,7 @@ export function MonitoringDashboard() {
         cell: (info) => {
           const status = info.getValue() as string
           return (
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColorMap[status] || "bg-gray-100"}`}>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColorMap[status] || "bg-gray-100"}`}>
               {status}
             </span>
           )
@@ -248,18 +272,19 @@ export function MonitoringDashboard() {
       {
         accessorKey: "monitoredBy",
         header: "Monitored By",
+        cell: (info) => <span className="text-sm">{info.getValue()}</span>,
         size: 140,
       },
       {
         accessorKey: "reRunId",
         header: "Re-Run ID",
-        cell: (info) => info.getValue() || "-",
+        cell: (info) => <span className="text-sm">{info.getValue() || "-"}</span>,
         size: 140,
       },
       {
         accessorKey: "incNumber",
         header: "INC Number",
-        cell: (info) => info.getValue() || "-",
+        cell: (info) => <span className="text-sm">{info.getValue() || "-"}</span>,
         size: 130,
       },
       {
@@ -268,18 +293,18 @@ export function MonitoringDashboard() {
         cell: (info) => {
           const status = info.getValue() as string | undefined
           return status ? (
-            <span className={`px-3 py-1 rounded-full text-2xs font-medium whitespace-nowrap ${currentStatusColorMap[status] || "bg-gray-100"}`}>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${currentStatusColorMap[status] || "bg-gray-100"}`}>
               {status.replace(/_/g, " ")}
             </span>
           ) : (
-            <span className="text-muted-foreground">-</span>
+            <span className="text-muted-foreground text-sm">-</span>
           )
         },
         size: 150,
       },
       {
         accessorKey: "resolvedBy",
-        header: "Resolved By",
+        header: "Resolved By (Team)",
         cell: (info) => {
           const resolved = info.getValue() as string | undefined
           const teamMap: { [key: string]: string } = {
@@ -292,7 +317,20 @@ export function MonitoringDashboard() {
               {teamMap[resolved] || resolved}
             </span>
           ) : (
-            <span className="text-muted-foreground">-</span>
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 130,
+      },
+      {
+        accessorKey: "resolvedByUser",
+        header: "Resolved By (User)",
+        cell: (info) => {
+          const user = info.getValue() as string | undefined
+          return user ? (
+            <span className="text-sm font-medium">{user}</span>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
           )
         },
         size: 130,
@@ -307,7 +345,7 @@ export function MonitoringDashboard() {
               {team.replace(/_/g, " ")}
             </span>
           ) : (
-            <span className="text-muted-foreground">-</span>
+            <span className="text-muted-foreground text-sm">-</span>
           )
         },
         size: 150,
@@ -322,7 +360,7 @@ export function MonitoringDashboard() {
               {comment}
             </div>
           ) : (
-            <span className="text-muted-foreground">-</span>
+            <span className="text-muted-foreground text-xs">-</span>
           )
         },
         size: 200,
@@ -332,30 +370,21 @@ export function MonitoringDashboard() {
         header: "Actions",
         cell: (info) => {
           const row = info.row.original
-          const isUnresolvedOrPending = row.currentStatus === "UNRESOLVED" || row.currentStatus === "PENDING" || row.currentStatus === "IN-PROGRESS"
-          const isAlreadyResolved = row.currentStatus === "RESOLVED"
-          const currentStatusNotSet = !row.currentStatus || row.currentStatus === "-"
-          const hasIncident = row.incNumber ? true : false
-          const canUpdateStatus = isUnresolvedOrPending || currentStatusNotSet
           
           return (
-            <div className="flex gap-2">
-              {canUpdateStatus && (
-                <Button
-                  size="sm"
-                  variant="default"
-                  onClick={() => openResolutionDialog(row.id, hasIncident)}
-                  disabled={updatingId === row.id}
-                  className="gap-1"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  {updatingId === row.id ? "Updating..." : "Resolved"}
-                </Button>
-              )}
-              {isAlreadyResolved && (
-                <span className="text-xs text-green-600 font-medium">✓ Resolved</span>
-              )}
-            </div>
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => {
+                setSelectedRecord(row)
+                setUpdateModalOpen(true)
+              }}
+              disabled={updatingId === row.id}
+              className="gap-1 text-xs"
+            >
+              <CheckCircle2 className="h-3 w-3" />
+              {updatingId === row.id ? "Updating..." : "Update"}
+            </Button>
           )
         },
         size: 150,
@@ -690,6 +719,17 @@ export function MonitoringDashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Update Modal */}
+      <UpdatePipelineMonitoringModal
+        isOpen={updateModalOpen}
+        onClose={() => {
+          setUpdateModalOpen(false)
+          setSelectedRecord(null)
+        }}
+        record={selectedRecord}
+        onRecordUpdated={handleRecordAdded}
+      />
     </div>
   )
 }
