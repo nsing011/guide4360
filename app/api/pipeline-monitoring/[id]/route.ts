@@ -5,11 +5,24 @@ import { getSession } from "@/lib/auth"
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!session || !session.userId) {
+      return NextResponse.json({ error: "Unauthorized - No valid session" }, { status: 401 })
     }
 
-    const { handledShift, failureShift, triggerName, runId, status, monitoredBy, reRunId, incNumber, currentStatus, resolvedBy, resolvedByUser, workingTeam, comments } = await request.json()
+    // Verify user exists in database
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+    })
+
+    if (!user) {
+      console.warn(`User ${session.userId} has valid session but not found in database. Session may be stale.`)
+      return NextResponse.json({ 
+        error: "Session expired or user not found. Please logout and login again.",
+        code: "USER_NOT_FOUND_IN_DB"
+      }, { status: 401 })
+    }
+
+    const { handledShift, failureShift, triggerName, runId, status, monitoredBy, reRunId, incNumber, currentStatus, resolvedBy, resolvedByUser, workingTeam, comments, adfName, adfUrl, failedAdfUrl, reRunAdfUrl } = await request.json()
 
     // Validate required fields
     if (!params.id || !params.id.trim()) {
@@ -60,6 +73,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (resolvedByUser !== undefined) updateData.resolvedByUser = resolvedByUser?.trim() || null
     if (workingTeam !== undefined) updateData.workingTeam = workingTeam || null
     if (comments !== undefined) updateData.comments = comments?.trim() || null
+    if (adfName !== undefined) updateData.adfName = adfName?.trim() || null
+    if (adfUrl !== undefined) updateData.adfUrl = adfUrl?.trim() || null
+    if (failedAdfUrl !== undefined) updateData.failedAdfUrl = failedAdfUrl?.trim() || null
+    if (reRunAdfUrl !== undefined) updateData.reRunAdfUrl = reRunAdfUrl?.trim() || null
 
     const updatedMonitoring = await prisma.pipelineMonitoring.update({
       where: { id: params.id.trim() },

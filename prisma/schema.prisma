@@ -142,6 +142,7 @@ model Pipeline {
 model PipelineMonitoring {
   id              String   @id @default(cuid()) @map("_id")
   date            DateTime @default(now())
+  triggerType     String   @default("failed")  // "failed" or "fresh"
   handledShift    String?  // "A", "B", or "C" (Handled Shift - optional, will be updated)
   failureShift    String?  // "A", "B", or "C" (Failure Shift - when pipeline failed)
   triggerName     String
@@ -155,6 +156,10 @@ model PipelineMonitoring {
   resolvedByUser  String?  // Username of who resolved/re-triggered the pipeline
   workingTeam     String?  // "L1_TEAM", "L2_TEAM", "OPS_TEAM", "PLATFORM_TEAM"
   comments        String?
+  adfName         String?  // ADF name (for both failed and fresh triggers)
+  adfUrl          String?  // ADF URL (for fresh triggers)
+  failedAdfUrl    String?  // Failed ADF URL (for failed triggers)
+  reRunAdfUrl     String?  // Re-run ADF URL (for failed triggers)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   createdBy       String?  // User ID who created this record
@@ -167,6 +172,7 @@ model PipelineMonitoring {
   @@index([updatedBy])
   @@index([date])
   @@index([failureShift])
+  @@index([triggerType])
   @@map("pipelineMonitoring")
 }
 

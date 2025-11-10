@@ -19,6 +19,7 @@ import { toast } from "sonner"
 interface PipelineMonitoring {
   id: string
   date: string
+  triggerType?: string
   handledShift?: string
   failureShift?: string
   triggerName: string
@@ -32,6 +33,10 @@ interface PipelineMonitoring {
   resolvedByUser?: string
   workingTeam?: string
   comments?: string
+  adfName?: string
+  adfUrl?: string
+  failedAdfUrl?: string
+  reRunAdfUrl?: string
   createdAt: string
 }
 
@@ -68,6 +73,10 @@ export function UpdatePipelineMonitoringModal({
         resolvedByUser: record.resolvedByUser || "",
         workingTeam: record.workingTeam || "",
         comments: record.comments || "",
+        adfName: record.adfName || "",
+        adfUrl: record.adfUrl || "",
+        failedAdfUrl: record.failedAdfUrl || "",
+        reRunAdfUrl: record.reRunAdfUrl || "",
       })
     }
   }, [isOpen, record])
@@ -95,6 +104,10 @@ export function UpdatePipelineMonitoringModal({
           resolvedByUser: formData.resolvedByUser || null,
           workingTeam: formData.workingTeam || null,
           comments: formData.comments || null,
+          adfName: formData.adfName || null,
+          adfUrl: formData.adfUrl || null,
+          failedAdfUrl: formData.failedAdfUrl || null,
+          reRunAdfUrl: formData.reRunAdfUrl || null,
         }),
       })
 
@@ -295,6 +308,68 @@ export function UpdatePipelineMonitoringModal({
                 </Select>
               </div>
             </div>
+
+            {/* ADF Details (shown for failed triggers) */}
+            {record?.triggerType === "failed" && (
+              <div className="border-t pt-4">
+                <h3 className="font-semibold text-sm mb-3 text-muted-foreground">ADF Details</h3>
+                <div className="grid gap-2 mb-4">
+                  <Label htmlFor="adfName">ADF Name</Label>
+                  <Input
+                    id="adfName"
+                    value={formData.adfName || ""}
+                    onChange={(e) => setFormData({ ...formData, adfName: e.target.value })}
+                    placeholder="ADF pipeline name"
+                  />
+                </div>
+                <div className="grid gap-2 mb-4">
+                  <Label htmlFor="failedAdfUrl">Failed ADF URL</Label>
+                  <Input
+                    id="failedAdfUrl"
+                    value={formData.failedAdfUrl || ""}
+                    onChange={(e) => setFormData({ ...formData, failedAdfUrl: e.target.value })}
+                    placeholder="https://..."
+                    type="url"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="reRunAdfUrl">Re-Run ADF URL</Label>
+                  <Input
+                    id="reRunAdfUrl"
+                    value={formData.reRunAdfUrl || ""}
+                    onChange={(e) => setFormData({ ...formData, reRunAdfUrl: e.target.value })}
+                    placeholder="https://..."
+                    type="url"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ADF Details (shown for fresh triggers) */}
+            {record?.triggerType === "fresh" && (
+              <div className="border-t pt-4">
+                <h3 className="font-semibold text-sm mb-3 text-muted-foreground">ADF Details</h3>
+                <div className="grid gap-2 mb-4">
+                  <Label htmlFor="adfName">ADF Name</Label>
+                  <Input
+                    id="adfName"
+                    value={formData.adfName || ""}
+                    onChange={(e) => setFormData({ ...formData, adfName: e.target.value })}
+                    placeholder="ADF pipeline name"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="adfUrl">ADF URL</Label>
+                  <Input
+                    id="adfUrl"
+                    value={formData.adfUrl || ""}
+                    onChange={(e) => setFormData({ ...formData, adfUrl: e.target.value })}
+                    placeholder="https://..."
+                    type="url"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Comments */}
             <div className="border-t pt-4">

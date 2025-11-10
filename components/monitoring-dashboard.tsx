@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   useReactTable,
   getCoreRowModel,
@@ -39,8 +40,9 @@ import {
 interface PipelineMonitoring {
   id: string
   date: string
+  triggerType?: string
   handledShift?: string
-  failureShift: string
+  failureShift?: string
   triggerName: string
   runId: string
   status: string
@@ -52,6 +54,10 @@ interface PipelineMonitoring {
   resolvedByUser?: string
   workingTeam?: string
   comments?: string
+  adfName?: string
+  adfUrl?: string
+  failedAdfUrl?: string
+  reRunAdfUrl?: string
   createdAt: string
 }
 
@@ -95,20 +101,38 @@ export function MonitoringDashboard() {
   const [incidentNumber, setIncidentNumber] = useState("")
   const [incidentStatus, setIncidentStatus] = useState<"UNRESOLVED" | "IN-PROGRESS" | "">("")
   const [assignedTeam, setAssignedTeam] = useState<"L1_TEAM" | "L2_TEAM" | "OPS_TEAM" | "PLATFORM_TEAM" | "">("")
+  const [activeTab, setActiveTab] = useState("failed")
 
+  // Fetch failed triggers
   const {
-    data: monitoringData = [],
-    error,
-    mutate,
-  } = useSWR<PipelineMonitoring[]>("/api/pipeline-monitoring", fetcher, {
+    data: failedTriggersData = [],
+    error: failedError,
+    mutate: mutateFailedTriggers,
+  } = useSWR<PipelineMonitoring[]>("/api/pipeline-monitoring?triggerType=failed", fetcher, {
     refreshInterval: 30000,
     revalidateOnFocus: true,
     dedupingInterval: 0,
   })
 
+  // Fetch fresh triggers
+  const {
+    data: freshTriggersData = [],
+    error: freshError,
+    mutate: mutateFreshTriggers,
+  } = useSWR<PipelineMonitoring[]>("/api/pipeline-monitoring?triggerType=fresh", fetcher, {
+    refreshInterval: 30000,
+    revalidateOnFocus: true,
+    dedupingInterval: 0,
+  })
+
+  // Get current data based on active tab
+  const currentData = activeTab === "failed" ? failedTriggersData : freshTriggersData
+  const error = activeTab === "failed" ? failedError : freshError
+
   const handleRecordAdded = () => {
     console.log("Record added, revalidating...")
-    mutate()
+    mutateFailedTriggers()
+    mutateFreshTriggers()
   }
 
   const openResolutionDialog = (id: string, hasIncident: boolean) => {
@@ -147,7 +171,7 @@ export function MonitoringDashboard() {
         if (response.ok) {
           const teamName = { L1: "L1 Team", L2: "L2 Team", OPS: "OPS Team" }[selectedTeam] || selectedTeam
           toast.success(`Pipeline marked as resolved by ${teamName}`)
-          mutate()
+          handleRecordAdded()
           setResolutionDialogOpen(false)
         } else {
           const data = await response.json()
@@ -189,7 +213,7 @@ export function MonitoringDashboard() {
         if (response.ok) {
           const teamName = { L1_TEAM: "L1 Team", L2_TEAM: "L2 Team", OPS_TEAM: "OPS Team", PLATFORM_TEAM: "PLATFORM Team" }[assignedTeam] || assignedTeam
           toast.success(`Incident ${incidentNumber} raised and assigned to ${teamName}`)
-          mutate()
+          handleRecordAdded()
           setResolutionDialogOpen(false)
         } else {
           const data = await response.json()
@@ -205,8 +229,8 @@ export function MonitoringDashboard() {
     }
   }
 
-  // Define columns
-  const columns: ColumnDef<PipelineMonitoring>[] = useMemo(
+  // Columns for Failed Triggers
+  const failedTriggersColumns: ColumnDef<PipelineMonitoring>[] = useMemo(
     () => [
       {
         accessorKey: "date",
@@ -274,6 +298,268 @@ export function MonitoringDashboard() {
         header: "Monitored By",
         cell: (info) => <span className="text-sm">{info.getValue()}</span>,
         size: 140,
+      },
+      {
+        accessorKey: "adfName",
+        header: "ADF Name",
+        cell: (info) => {
+          const adfName = info.getValue() as string | undefined
+          return adfName ? (
+            <span className="text-sm font-medium">{adfName}</span>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 150,
+      },
+      {
+        accessorKey: "failedAdfUrl",
+        header: "Failed ADF URL",
+        cell: (info) => {
+          const failedAdfUrl = info.getValue() as string | undefined
+          return failedAdfUrl ? (
+            <a 
+              href={failedAdfUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm text-blue-600 hover:underline truncate max-w-xs"
+              title={failedAdfUrl}
+            >
+              {failedAdfUrl}
+            </a>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 200,
+      },
+      {
+        accessorKey: "reRunId",
+        header: "Re-Run ID",
+        cell: (info) => <span className="text-sm">{info.getValue() || "-"}</span>,
+        size: 140,
+      },
+      {
+        accessorKey: "reRunAdfUrl",
+        header: "Re-Run ADF URL",
+        cell: (info) => {
+          const reRunAdfUrl = info.getValue() as string | undefined
+          return reRunAdfUrl ? (
+            <a 
+              href={reRunAdfUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm text-blue-600 hover:underline truncate max-w-xs"
+              title={reRunAdfUrl}
+            >
+              {reRunAdfUrl}
+            </a>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 200,
+      },
+      {
+        accessorKey: "incNumber",
+        header: "INC Number",
+        cell: (info) => <span className="text-sm">{info.getValue() || "-"}</span>,
+        size: 130,
+      },
+      {
+        accessorKey: "currentStatus",
+        header: "Current Status",
+        cell: (info) => {
+          const status = info.getValue() as string | undefined
+          return status ? (
+            <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${currentStatusColorMap[status] || "bg-gray-100"}`}>
+              {status.replace(/_/g, " ")}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 150,
+      },
+      {
+        accessorKey: "resolvedBy",
+        header: "Resolved By (Team)",
+        cell: (info) => {
+          const resolved = info.getValue() as string | undefined
+          const teamMap: { [key: string]: string } = {
+            L1: "L1 Team",
+            L2: "L2 Team",
+            OPS: "OPS Team",
+          }
+          return resolved ? (
+            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+              {teamMap[resolved] || resolved}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 130,
+      },
+      {
+        accessorKey: "resolvedByUser",
+        header: "Resolved By (User)",
+        cell: (info) => {
+          const user = info.getValue() as string | undefined
+          return user ? (
+            <span className="text-sm font-medium">{user}</span>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 130,
+      },
+      {
+        accessorKey: "workingTeam",
+        header: "Working Team",
+        cell: (info) => {
+          const team = info.getValue() as string | undefined
+          return team ? (
+            <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+              {team.replace(/_/g, " ")}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 150,
+      },
+      {
+        accessorKey: "comments",
+        header: "Comments",
+        cell: (info) => {
+          const comment = info.getValue() as string | undefined
+          return comment ? (
+            <div className="text-xs max-w-xs truncate" title={comment}>
+              {comment}
+            </div>
+          ) : (
+            <span className="text-muted-foreground text-xs">-</span>
+          )
+        },
+        size: 200,
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: (info) => {
+          const row = info.row.original
+          
+          return (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => {
+                setSelectedRecord(row)
+                setUpdateModalOpen(true)
+              }}
+              disabled={updatingId === row.id}
+              className="gap-1 text-xs"
+            >
+              <CheckCircle2 className="h-3 w-3" />
+              {updatingId === row.id ? "Updating..." : "Update"}
+            </Button>
+          )
+        },
+        size: 150,
+      },
+    ],
+    [updatingId]
+  )
+
+  // Columns for Fresh Triggers (same as failed but without failureShift, with adfName and adfUrl)
+  const freshTriggersColumns: ColumnDef<PipelineMonitoring>[] = useMemo(
+    () => [
+      {
+        accessorKey: "date",
+        header: "Date",
+        cell: (info) => new Date(info.getValue() as string).toLocaleDateString(),
+        size: 120,
+      },
+      {
+        accessorKey: "handledShift",
+        header: "Handled Shift",
+        cell: (info) => {
+          const handledShift = info.getValue() as string | undefined
+          return handledShift ? (
+            <span className="font-semibold text-blue-600 text-sm">
+              {handledShift}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 100,
+      },
+      {
+        accessorKey: "triggerName",
+        header: "Trigger Name",
+        cell: (info) => <span className="text-sm">{info.getValue()}</span>,
+        size: 180,
+      },
+      {
+        accessorKey: "runId",
+        header: "Run ID",
+        cell: (info) => <span className="text-sm">{info.getValue()}</span>,
+        size: 140,
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: (info) => {
+          const status = info.getValue() as string
+          return (
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColorMap[status] || "bg-gray-100"}`}>
+              {status}
+            </span>
+          )
+        },
+        size: 130,
+      },
+      {
+        accessorKey: "monitoredBy",
+        header: "Monitored By",
+        cell: (info) => <span className="text-sm">{info.getValue()}</span>,
+        size: 140,
+      },
+      {
+        accessorKey: "adfName",
+        header: "ADF Name",
+        cell: (info) => {
+          const adfName = info.getValue() as string | undefined
+          return adfName ? (
+            <span className="text-sm font-medium">{adfName}</span>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 150,
+      },
+      {
+        accessorKey: "adfUrl",
+        header: "ADF URL",
+        cell: (info) => {
+          const adfUrl = info.getValue() as string | undefined
+          return adfUrl ? (
+            <a 
+              href={adfUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm text-blue-600 hover:underline truncate max-w-xs"
+              title={adfUrl}
+            >
+              {adfUrl}
+            </a>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
+        size: 200,
       },
       {
         accessorKey: "reRunId",
@@ -393,8 +679,10 @@ export function MonitoringDashboard() {
     [updatingId]
   )
 
+  const columns = activeTab === "failed" ? failedTriggersColumns : freshTriggersColumns
+
   const table = useReactTable({
-    data: monitoringData,
+    data: currentData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -457,116 +745,227 @@ export function MonitoringDashboard() {
         </p>
       </div>
 
-      {/* Search Filter */}
-      <div className="px-4 sm:px-6 py-4 border-b border-border bg-card">
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <label className="text-sm font-medium mb-2 block">Search (Trigger, Run ID, User...)</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Type to search..."
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-                className="pl-10"
-              />
+      {/* Tabs for Failed and Fresh Triggers */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="px-4 sm:px-6 pt-4 border-b border-border bg-card">
+          <TabsList>
+            <TabsTrigger value="failed" className="gap-2">
+              Failed Triggers
+              <span className="ml-2 px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
+                {failedTriggersData.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="fresh" className="gap-2">
+              Fresh Triggers
+              <span className="ml-2 px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">
+                {freshTriggersData.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Search Filter */}
+        <div className="px-4 sm:px-6 py-4 border-b border-border bg-card">
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">Search (Trigger, Run ID, User...)</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Type to search..."
+                  value={globalFilter}
+                  onChange={(e) => setGlobalFilter(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                onClick={() => setGlobalFilter("")}
+              >
+                Clear
+              </Button>
             </div>
           </div>
-          <div className="flex items-end">
-            <Button
-              variant="outline"
-              onClick={() => setGlobalFilter("")}
-            >
-              Clear
-            </Button>
-          </div>
         </div>
-      </div>
 
-      {/* Table */}
-      <div className="p-4 sm:p-6">
-        <div className="overflow-x-auto border border-border rounded-lg">
-          <table className="w-full text-sm">
-            <thead className="bg-muted border-b border-border">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className="px-4 py-3 text-left font-semibold whitespace-nowrap cursor-pointer hover:bg-muted/80"
-                      onClick={header.column.getToggleSortingHandler()}
-                      style={{ width: header.getSize() }}
-                    >
-                      <div className="flex items-center gap-2">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getIsSorted() ? (
-                          header.column.getIsSorted() === "desc" ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronUp className="h-4 w-4" />
-                          )
-                        ) : null}
-                      </div>
-                    </th>
+        {/* Failed Triggers Tab */}
+        <TabsContent value="failed" className="m-0">
+          {/* Table */}
+          <div className="p-4 sm:p-6">
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-muted border-b border-border">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <th
+                          key={header.id}
+                          className="px-4 py-3 text-left font-semibold whitespace-nowrap cursor-pointer hover:bg-muted/80"
+                          onClick={header.column.getToggleSortingHandler()}
+                          style={{ width: header.getSize() }}
+                        >
+                          <div className="flex items-center gap-2">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {header.column.getIsSorted() ? (
+                              header.column.getIsSorted() === "desc" ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronUp className="h-4 w-4" />
+                              )
+                            ) : null}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.length > 0 ? (
-                table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="border-b border-border hover:bg-muted/50 transition-colors">
-                    {row.getVisibleCells().map((cell) => (
-                      <td
-                        key={cell.id}
-                        className="px-4 py-3"
-                        style={{ width: cell.column.getSize() }}
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.length > 0 ? (
+                    table.getRowModel().rows.map((row) => (
+                      <tr key={row.id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                        {row.getVisibleCells().map((cell) => (
+                          <td
+                            key={cell.id}
+                            className="px-4 py-3"
+                            style={{ width: cell.column.getSize() }}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={columns.length} className="px-4 py-12 text-center text-muted-foreground">
+                        <div className="text-6xl mb-4">📊</div>
+                        <p className="text-lg font-semibold">No failed trigger records</p>
+                        <p className="text-sm">Failed triggers will appear here</p>
                       </td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={columns.length} className="px-4 py-12 text-center text-muted-foreground">
-                    <div className="text-6xl mb-4">📊</div>
-                    <p className="text-lg font-semibold">No pipeline monitoring records</p>
-                    <p className="text-sm">Add your first monitoring record to get started</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-muted-foreground">
-            Showing {table.getRowModel().rows.length > 0 ? table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1 : 0} to{" "}
-            {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getFilteredRowModel().rows.length)} of{" "}
-            {table.getFilteredRowModel().rows.length} records
+            {/* Pagination */}
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {table.getRowModel().rows.length > 0 ? table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1 : 0} to{" "}
+                {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getFilteredRowModel().rows.length)} of{" "}
+                {table.getFilteredRowModel().rows.length} records
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              Next
-            </Button>
+        </TabsContent>
+
+        {/* Fresh Triggers Tab */}
+        <TabsContent value="fresh" className="m-0">
+          {/* Table */}
+          <div className="p-4 sm:p-6">
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-muted border-b border-border">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <th
+                          key={header.id}
+                          className="px-4 py-3 text-left font-semibold whitespace-nowrap cursor-pointer hover:bg-muted/80"
+                          onClick={header.column.getToggleSortingHandler()}
+                          style={{ width: header.getSize() }}
+                        >
+                          <div className="flex items-center gap-2">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {header.column.getIsSorted() ? (
+                              header.column.getIsSorted() === "desc" ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronUp className="h-4 w-4" />
+                              )
+                            ) : null}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.length > 0 ? (
+                    table.getRowModel().rows.map((row) => (
+                      <tr key={row.id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                        {row.getVisibleCells().map((cell) => (
+                          <td
+                            key={cell.id}
+                            className="px-4 py-3"
+                            style={{ width: cell.column.getSize() }}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={columns.length} className="px-4 py-12 text-center text-muted-foreground">
+                        <div className="text-6xl mb-4">✨</div>
+                        <p className="text-lg font-semibold">No fresh trigger records</p>
+                        <p className="text-sm">Fresh triggers will appear here</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {table.getRowModel().rows.length > 0 ? table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1 : 0} to{" "}
+                {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getFilteredRowModel().rows.length)} of{" "}
+                {table.getFilteredRowModel().rows.length} records
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
 
       <AlertDialog open={resolutionDialogOpen} onOpenChange={setResolutionDialogOpen}>
         <AlertDialogContent className="max-w-lg">

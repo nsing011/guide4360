@@ -25,6 +25,7 @@ interface AddPipelineMonitoringModalProps {
 export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitoringModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [triggerType, setTriggerType] = useState<"failed" | "fresh">("failed")
   const [formData, setFormData] = useState({
     handledShift: "",
     failureShift: "",
@@ -39,13 +40,28 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
     resolvedByUser: "",
     workingTeam: "",
     comments: "",
+    adfName: "",
+    adfUrl: "",
+    failedAdfUrl: "",
+    reRunAdfUrl: "",
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.failureShift || !formData.triggerName || !formData.runId || !formData.status || !formData.monitoredBy) {
-      toast.error("Please fill in all required fields")
-      return
+    
+    // Validation for failed triggers
+    if (triggerType === "failed") {
+      if (!formData.failureShift || !formData.triggerName || !formData.runId || !formData.status || !formData.monitoredBy) {
+        toast.error("Please fill in all required fields for failed triggers")
+        return
+      }
+    }
+    // Validation for fresh triggers
+    else {
+      if (!formData.triggerName || !formData.runId || !formData.status || !formData.monitoredBy) {
+        toast.error("Please fill in all required fields for fresh triggers")
+        return
+      }
     }
 
     setIsLoading(true)
@@ -53,7 +69,10 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
       const response = await fetch("/api/pipeline-monitoring", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          triggerType,
+          ...formData,
+        }),
       })
 
       const data = await response.json()
@@ -75,7 +94,12 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
           resolvedByUser: "",
           workingTeam: "",
           comments: "",
+          adfName: "",
+          adfUrl: "",
+          failedAdfUrl: "",
+          reRunAdfUrl: "",
         })
+        setTriggerType("failed")
         setIsOpen(false)
         onRecordAdded()
       } else {
@@ -107,23 +131,96 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            {/* Shift & Failure Information */}
+            {/* Trigger Type Selection */}
             <div>
-              <h3 className="font-semibold text-sm mb-3 text-muted-foreground">Pipeline Failure Information</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="failureShift">Failure Shift *</Label>
-                  <Select value={formData.failureShift} onValueChange={(value) => setFormData({ ...formData, failureShift: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select failure shift" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A">A (6:30 AM - 3:00 PM IST)</SelectItem>
-                      <SelectItem value="B">B (2:20 PM - 11:00 PM IST)</SelectItem>
-                      <SelectItem value="C">C (10:30 PM - 7:00 AM IST)</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <h3 className="font-semibold text-sm mb-3 text-muted-foreground">Trigger Type</h3>
+              <div className="grid gap-2">
+                <Label htmlFor="triggerType">Type *</Label>
+                <Select value={triggerType} onValueChange={(value: any) => setTriggerType(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select trigger type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="failed">Failed Triggers</SelectItem>
+                    <SelectItem value="fresh">Fresh Triggers</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Shift & Failure Information (only for failed triggers) */}
+            {triggerType === "failed" && (
+              <div className="border-t pt-4">
+                <h3 className="font-semibold text-sm mb-3 text-muted-foreground">Pipeline Failure Information</h3>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="failureShift">Failure Shift *</Label>
+                    <Select value={formData.failureShift} onValueChange={(value) => setFormData({ ...formData, failureShift: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select failure shift" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A">A (6:30 AM - 3:00 PM IST)</SelectItem>
+                        <SelectItem value="B">B (2:20 PM - 11:00 PM IST)</SelectItem>
+                        <SelectItem value="C">C (10:30 PM - 7:00 AM IST)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="handledShift">Handled Shift (Optional)</Label>
+                    <Select value={formData.handledShift || ""} onValueChange={(value) => setFormData({ ...formData, handledShift: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select if known" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A">A (6:30 AM - 3:00 PM IST)</SelectItem>
+                        <SelectItem value="B">B (2:20 PM - 11:00 PM IST)</SelectItem>
+                        <SelectItem value="C">C (10:30 PM - 7:00 AM IST)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+
+                {/* ADF Details for Failed Triggers */}
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold text-sm mb-3 text-muted-foreground">ADF Details (Optional)</h3>
+                  <div className="grid gap-2 mb-4">
+                    <Label htmlFor="adfName">ADF Name</Label>
+                    <Input
+                      id="adfName"
+                      value={formData.adfName}
+                      onChange={(e) => setFormData({ ...formData, adfName: e.target.value })}
+                      placeholder="ADF pipeline name"
+                    />
+                  </div>
+                  <div className="grid gap-2 mb-4">
+                    <Label htmlFor="failedAdfUrl">Failed ADF URL</Label>
+                    <Input
+                      id="failedAdfUrl"
+                      value={formData.failedAdfUrl}
+                      onChange={(e) => setFormData({ ...formData, failedAdfUrl: e.target.value })}
+                      placeholder="https://..."
+                      type="url"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="reRunAdfUrl">Re-Run ADF URL</Label>
+                    <Input
+                      id="reRunAdfUrl"
+                      value={formData.reRunAdfUrl}
+                      onChange={(e) => setFormData({ ...formData, reRunAdfUrl: e.target.value })}
+                      placeholder="https://..."
+                      type="url"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Handled Shift (only for fresh triggers) */}
+            {triggerType === "fresh" && (
+              <div className="border-t pt-4">
+                <h3 className="font-semibold text-sm mb-3 text-muted-foreground">Shift Information</h3>
                 <div className="grid gap-2">
                   <Label htmlFor="handledShift">Handled Shift (Optional)</Label>
                   <Select value={formData.handledShift || ""} onValueChange={(value) => setFormData({ ...formData, handledShift: value })}>
@@ -138,7 +235,7 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
                   </Select>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Pipeline Details */}
             <div className="border-t pt-4">
@@ -180,6 +277,32 @@ export function AddPipelineMonitoringModal({ onRecordAdded }: AddPipelineMonitor
                 </div>
               </div>
             </div>
+
+            {/* ADF Details (only for fresh triggers) */}
+            {triggerType === "fresh" && (
+              <div className="border-t pt-4">
+                <h3 className="font-semibold text-sm mb-3 text-muted-foreground">ADF Details</h3>
+                <div className="grid gap-2 mb-4">
+                  <Label htmlFor="adfName">ADF Name</Label>
+                  <Input
+                    id="adfName"
+                    value={formData.adfName}
+                    onChange={(e) => setFormData({ ...formData, adfName: e.target.value })}
+                    placeholder="ADF pipeline name"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="adfUrl">ADF URL</Label>
+                  <Input
+                    id="adfUrl"
+                    value={formData.adfUrl}
+                    onChange={(e) => setFormData({ ...formData, adfUrl: e.target.value })}
+                    placeholder="https://..."
+                    type="url"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Monitoring & Re-Run Info */}
             <div className="border-t pt-4">
