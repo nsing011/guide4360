@@ -1,0 +1,219 @@
+================================================================================
+                    URL TRUNCATION FIX - SUMMARY
+================================================================================
+
+PROBLEM: ADF URL columns taking up too much space
+SOLUTION: Fixed width (160px) + truncation + hover tooltip
+
+================================================================================
+                           BEFORE vs AFTER
+================================================================================
+
+BEFORE:
+───────
+┌──────────────────────────────────────────────────────────────┐
+│ Failed ADF URL                                               │
+├──────────────────────────────────────────────────────────────┤
+│ https://adf.azure.com/en/monitoring/pipelineruns/b984eaca   │
+│ -c0b9-41ef-9d6a-28d9331ce14d?factory=%2Fsubscriptions%2Fd   │
+│ 672fb10-dff9-48bf-af78-2b078bab1f11%2FresourceGroups...     │
+│                                                              │
+│ (300px+ width - causes horizontal scrolling)                │
+└──────────────────────────────────────────────────────────────┘
+
+
+AFTER:
+──────
+┌──────────────────────┐
+│ Failed ADF URL       │
+├──────────────────────┤
+│ https://adf.azure... │
+│ (Hover to see full)  │
+│                      │
+│ (160px fixed width)  │
+└──────────────────────┘
+
+
+================================================================================
+                         HOW IT WORKS
+================================================================================
+
+1. FIXED WIDTH
+   └─ w-40 = 160px (Tailwind class)
+   └─ All URL columns same width ✅
+
+2. TRUNCATION
+   └─ truncate class adds ellipsis (...)
+   └─ Long text replaced with: https://adf.azure.com/...
+   └─ Remaining URL hidden but preserved ✅
+
+3. TOOLTIP
+   └─ title attribute shows full URL on hover
+   └─ User sees complete URL when hovering ✅
+
+4. STILL CLICKABLE
+   └─ Link remains functional
+   └─ Opens in new tab when clicked ✅
+
+
+================================================================================
+                          VISUAL RESULT
+================================================================================
+
+Table Before:
+┌─────┬──────────────────────────────────────────┬─────┐
+│Date │ Failed ADF URL (very long, scrolling)   │ ... │
+├─────┼──────────────────────────────────────────┼─────┤
+│Jan │ https://adf.azure.com/en/monitoring/..  │ ... │ ← Scroll right!
+│Feb │ https://adf.azure.com/en/authoring/...  │ ... │
+│Mar │ https://adf.azure.com/en/monitoring/..  │ ... │
+└─────┴──────────────────────────────────────────┴─────┘
+
+
+Table After:
+┌─────┬───────────────────┬─────┐
+│Date │ Failed ADF URL    │ ... │
+├─────┼───────────────────┼─────┤
+│Jan │ https://adf... ✅│ ... │ ← No scroll!
+│Feb │ https://adf... ✅│ ... │   Clean!
+│Mar │ https://adf... ✅│ ... │   Fixed!
+└─────┴───────────────────┴─────┘
+
+
+================================================================================
+                          HOVER TOOLTIP
+================================================================================
+
+User hovers over URL cell:
+    ↓
+Tooltip appears:
+
+┌─────────────────────────────────────────────────────────────┐
+│ https://adf.azure.com/en/monitoring/pipelineruns/b984eaca  │
+│ -c0b9-41ef-9d6a-28d9331ce14d?factory=%2Fsubscriptions%2Fd  │
+│ 672fb10-dff9-48bf-af78-2b078bab1f11%2FresourceGroups%2FAZR │
+│                                                             │
+│ Full URL visible! ✅                                        │
+└─────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                        COLUMNS FIXED (3)
+================================================================================
+
+Tab: Failed Triggers
+├─ Failed ADF URL (160px fixed) ✅
+└─ Re-Run ADF URL (160px fixed) ✅
+
+Tab: Fresh Triggers
+└─ ADF URL (160px fixed) ✅
+
+
+================================================================================
+                       TAILWIND CLASSES USED
+================================================================================
+
+w-40:           ← Width 40 units (160px)
+overflow-hidden ← Hide content beyond width
+block:          ← Display as block (for truncate)
+truncate:       ← Add ellipsis to long text
+
+
+Result CSS Applied:
+────────────────────
+width: 160px;
+overflow: hidden;
+white-space: nowrap;
+text-overflow: ellipsis;
+
+
+================================================================================
+                      USER INTERACTION
+================================================================================
+
+Scenario 1: User sees table
+│
+├─ URL appears truncated: "https://adf.azure..."
+└─ Consistent width (160px)
+
+Scenario 2: User hovers over URL
+│
+├─ Tooltip shows full URL
+└─ Hover tooltip displays complete link
+
+Scenario 3: User clicks URL
+│
+├─ Opens in new tab
+└─ Full URL loaded in browser
+
+
+================================================================================
+                        BENEFITS
+================================================================================
+
+✅ Consistent table layout
+✅ No horizontal scrolling
+✅ Professional appearance
+✅ Mobile-friendly
+✅ Full URL still accessible
+✅ Clickable links work
+✅ Better UX
+✅ Responsive design
+
+
+================================================================================
+                        TEST IT OUT
+================================================================================
+
+1. Go to Monitoring page
+2. Click "Failed Triggers" tab
+3. Look at "Failed ADF URL" column
+   └─ Should show: https://adf.azure... (160px width)
+   
+4. Hover over URL cell
+   └─ Tooltip shows full URL ✅
+   
+5. Click URL
+   └─ Opens in new tab ✅
+   
+6. Check "Re-Run ADF URL" column
+   └─ Same treatment applied ✅
+   
+7. Click "Fresh Triggers" tab
+8. Check "ADF URL" column
+   └─ Same treatment applied ✅
+
+
+================================================================================
+                          SUMMARY
+================================================================================
+
+What Changed:
+│
+├─ All ADF URL columns now 160px fixed width
+├─ Long URLs truncated with ellipsis (...)
+├─ Full URL visible on hover (tooltip)
+└─ Links still clickable
+
+Result:
+│
+├─ ✅ Clean table layout
+├─ ✅ No horizontal scrolling
+├─ ✅ Professional appearance
+├─ ✅ Better user experience
+└─ ✅ Full functionality preserved
+
+
+Files Modified: 1
+├─ components/monitoring-dashboard.tsx
+
+Columns Fixed: 3
+├─ Failed ADF URL (Failed Triggers)
+├─ Re-Run ADF URL (Failed Triggers)
+└─ ADF URL (Fresh Triggers)
+
+
+Status: ✅ READY TO USE
+
+================================================================================
+

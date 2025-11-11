@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
-import { ArrowLeft, Search, ChevronUp, ChevronDown, CheckCircle2 } from "lucide-react"
+import { ArrowLeft, Search, ChevronUp, ChevronDown, CheckCircle2, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
@@ -277,7 +277,22 @@ export function MonitoringDashboard() {
       {
         accessorKey: "runId",
         header: "Run ID",
-        cell: (info) => <span className="text-sm">{info.getValue()}</span>,
+        cell: (info) => {
+          const runId = info.getValue() as string
+          return (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(runId)
+                toast.success(`Run ID copied: ${runId}`)
+              }}
+              className="text-sm text-black group flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              title="Click to copy"
+            >
+              <span>{runId}</span>
+              <Copy className="h-8 w-8 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          )
+        },
         size: 140,
       },
       {
@@ -318,25 +333,46 @@ export function MonitoringDashboard() {
         cell: (info) => {
           const failedAdfUrl = info.getValue() as string | undefined
           return failedAdfUrl ? (
-            <a 
-              href={failedAdfUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:underline truncate max-w-xs"
+            <div 
               title={failedAdfUrl}
+              className="w-40 overflow-hidden"
             >
-              {failedAdfUrl}
-            </a>
+              <a 
+                href={failedAdfUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:underline block truncate"
+              >
+                {failedAdfUrl}
+              </a>
+            </div>
           ) : (
             <span className="text-muted-foreground text-sm">-</span>
           )
         },
-        size: 200,
+        size: 160,
       },
       {
         accessorKey: "reRunId",
         header: "Re-Run ID",
-        cell: (info) => <span className="text-sm">{info.getValue() || "-"}</span>,
+        cell: (info) => {
+          const reRunId = info.getValue() as string | undefined
+          return reRunId ? (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(reRunId)
+                toast.success(`Re-Run ID copied: ${reRunId}`)
+              }}
+              className="text-sm text-black group flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              title="Click to copy"
+            >
+              <span>{reRunId}</span>
+              <Copy className="h-8 w-8 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
         size: 140,
       },
       {
@@ -345,20 +381,24 @@ export function MonitoringDashboard() {
         cell: (info) => {
           const reRunAdfUrl = info.getValue() as string | undefined
           return reRunAdfUrl ? (
-            <a 
-              href={reRunAdfUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:underline truncate max-w-xs"
+            <div 
               title={reRunAdfUrl}
+              className="w-40 overflow-hidden"
             >
-              {reRunAdfUrl}
-            </a>
+              <a 
+                href={reRunAdfUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:underline block truncate"
+              >
+                {reRunAdfUrl}
+              </a>
+            </div>
           ) : (
             <span className="text-muted-foreground text-sm">-</span>
           )
         },
-        size: 200,
+        size: 160,
       },
       {
         accessorKey: "incNumber",
@@ -505,7 +545,22 @@ export function MonitoringDashboard() {
       {
         accessorKey: "runId",
         header: "Run ID",
-        cell: (info) => <span className="text-sm">{info.getValue()}</span>,
+        cell: (info) => {
+          const runId = info.getValue() as string
+          return (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(runId)
+                toast.success(`Run ID copied: ${runId}`)
+              }}
+              className="text-sm text-black group flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              title="Click to copy"
+            >
+              <span>{runId}</span>
+              <Copy className="h-8 w-8 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          )
+        },
         size: 140,
       },
       {
@@ -546,25 +601,46 @@ export function MonitoringDashboard() {
         cell: (info) => {
           const adfUrl = info.getValue() as string | undefined
           return adfUrl ? (
-            <a 
-              href={adfUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:underline truncate max-w-xs"
+            <div 
               title={adfUrl}
+              className="w-40 overflow-hidden"
             >
-              {adfUrl}
-            </a>
+              <a 
+                href={adfUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:underline block truncate"
+              >
+                {adfUrl}
+              </a>
+            </div>
           ) : (
             <span className="text-muted-foreground text-sm">-</span>
           )
         },
-        size: 200,
+        size: 160,
       },
       {
         accessorKey: "reRunId",
         header: "Re-Run ID",
-        cell: (info) => <span className="text-sm">{info.getValue() || "-"}</span>,
+        cell: (info) => {
+          const reRunId = info.getValue() as string | undefined
+          return reRunId ? (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(reRunId)
+                toast.success(`Re-Run ID copied: ${reRunId}`)
+              }}
+              className="text-sm text-black group flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              title="Click to copy"
+            >
+              <span>{reRunId}</span>
+              <Copy className="h-8 w-8 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
         size: 140,
       },
       {
