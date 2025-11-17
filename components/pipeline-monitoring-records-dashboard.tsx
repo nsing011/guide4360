@@ -278,10 +278,10 @@ export function PipelineMonitoringRecordsDashboard() {
       <header className="border-b border-border bg-card">
         <div className="flex items-center justify-between px-4 sm:px-6 py-4">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => router.push("/")} className="gap-2">
+            {/* <Button variant="ghost" size="sm" onClick={() => router.push("/")} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
               Back
-            </Button>
+            </Button> */}
             <h1 className="text-xl font-bold">Pipeline Monitoring Records</h1>
           </div>
           <Button onClick={() => setIsCreatingShiftRecords(true)} className="gap-2">
@@ -547,7 +547,7 @@ export function PipelineMonitoringRecordsDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="A">A Shift (6:30 AM - 3:00 PM IST)</SelectItem>
-                  <SelectItem value="B">B Shift (2:20 PM - 11:00 PM IST)</SelectItem>
+                  <SelectItem value="B">B Shift (2:30 PM - 11:00 PM IST)</SelectItem>
                   <SelectItem value="C">C Shift (10:30 PM - 7:00 AM IST)</SelectItem>
                 </SelectContent>
               </Select>

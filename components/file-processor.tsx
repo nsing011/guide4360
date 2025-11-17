@@ -14,11 +14,11 @@ interface ProcessingProgress {
   progress: number
 }
 
-type SupplierType = "london-drugs" | "walmart-ecom"
+type retailerType = "london-drugs" | "walmart-ecom"
 
 export function FileProcessor() {
   const [file, setFile] = useState<File | null>(null)
-  const [supplier, setSupplier] = useState<SupplierType | "">("")
+  const [retailer, setretailer] = useState<retailerType | "">("")
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState<ProcessingProgress | null>(null)
   const [processedFile, setProcessedFile] = useState<Blob | null>(null)
@@ -76,8 +76,8 @@ export function FileProcessor() {
   }
 
   const handleProceed = async () => {
-    if (!file || !supplier) {
-      toast.error("Please select a file and supplier")
+    if (!file || !retailer) {
+      toast.error("Please select a file and retailer")
       return
     }
 
@@ -87,7 +87,7 @@ export function FileProcessor() {
     try {
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("supplier", supplier)
+      formData.append("retailer", retailer)
 
       // Create a mock progress tracker
       const progressInterval = setInterval(() => {
@@ -117,7 +117,7 @@ export function FileProcessor() {
         response.headers
           .get("content-disposition")
           ?.split("filename=")[1]
-          ?.replace(/"/g, "") || `processed_${supplier}_${Date.now()}.xlsx`
+          ?.replace(/"/g, "") || `processed_${retailer}_${Date.now()}.xlsx`
 
       setProcessedFile(blob)
       setProcessedFileName(filename)
@@ -158,7 +158,7 @@ export function FileProcessor() {
           <CardHeader>
             <CardTitle>File Processor</CardTitle>
             <p className="text-sm text-muted-foreground mt-2">
-              Upload and process your supplier files (London Drugs or Walmart ecom)
+              Upload and process your retailer files.
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -205,12 +205,12 @@ export function FileProcessor() {
               )}
             </div>
 
-            {/* Supplier Selection */}
+            {/* retailer Selection */}
             <div className="space-y-3">
-              <Label htmlFor="supplier-select">Select Supplier</Label>
-              <Select value={supplier} onValueChange={(value) => setSupplier(value as SupplierType)}>
-                <SelectTrigger id="supplier-select">
-                  <SelectValue placeholder="Choose a supplier..." />
+              <Label htmlFor="retailer-select">Select retailer</Label>
+              <Select value={retailer} onValueChange={(value) => setretailer(value as retailerType)}>
+                <SelectTrigger id="retailer-select">
+                  <SelectValue placeholder="Choose a retailer..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="london-drugs">London Drugs</SelectItem>
@@ -236,7 +236,7 @@ export function FileProcessor() {
             <div className="flex gap-3">
               <Button
                 onClick={handleProceed}
-                disabled={!file || !supplier || isProcessing}
+                disabled={!file || !retailer || isProcessing}
                 className="flex-1"
               >
                 {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -251,8 +251,8 @@ export function FileProcessor() {
               )}
             </div>
 
-            {/* Supplier Info */}
-            <div className="bg-gray-50 p-4 rounded-lg space-y-3 text-sm">
+            {/* retailer Info */}
+            {/* <div className="bg-gray-50 p-4 rounded-lg space-y-3 text-sm">
               <div>
                 <h4 className="font-semibold text-gray-900 mb-2">Processing Details:</h4>
                 <div className="space-y-2 text-muted-foreground">
@@ -272,7 +272,7 @@ export function FileProcessor() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </CardContent>
         </Card>
       </div>

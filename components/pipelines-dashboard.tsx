@@ -148,7 +148,7 @@ export function PipelinesDashboard() {
       <header className="border-b border-border bg-card">
         <div className="flex items-center justify-between px-4 sm:px-6 py-4">
           <div className="flex items-center gap-4">
-            <Button
+            {/* <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push("/")}
@@ -156,7 +156,7 @@ export function PipelinesDashboard() {
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Dashboard
-            </Button>
+            </Button> */}
             <h1 className="text-xl font-bold">Pipeline List</h1>
           </div>
           <AddPipelineModal onPipelineAdded={handlePipelineAdded} />

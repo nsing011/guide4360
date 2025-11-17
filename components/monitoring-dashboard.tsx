@@ -797,29 +797,61 @@ export function MonitoringDashboard() {
               <ArrowLeft className="h-4 w-4" />
               Back to Dashboard
             </Button>
-            <h1 className="text-xl font-bold">Pipeline Monitoring</h1>
+            <h1 className="text-xl font-bold">
+              Pipeline Monitoring{" "}
+              <span className="relative inline-block">
+                <span
+                  tabIndex={0}
+                  className="cursor-pointer text-blue-600 select-none"
+                  title="Shift Info"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const tooltip = (e.currentTarget.nextSibling as HTMLElement)
+                    if (tooltip) tooltip.style.display = tooltip.style.display === "block" ? "none" : "block"
+                  }}
+                  onBlur={(e) => {
+                    const tooltip = (e.currentTarget.nextSibling as HTMLElement)
+                    if (tooltip) tooltip.style.display = "none"
+                  }}
+                  onMouseEnter={(e) => {
+                    const tooltip = (e.currentTarget.nextSibling as HTMLElement)
+                    if (tooltip) tooltip.style.display = "block"
+                  }}
+                  onMouseLeave={(e) => {
+                    const tooltip = (e.currentTarget.nextSibling as HTMLElement)
+                    if (tooltip) tooltip.style.display = "none"
+                  }}
+                >
+                  *
+                </span>
+                <div
+                  className="absolute top-6 left-1/2 z-20 w-max min-w-[220px] -translate-x-1/2 rounded-lg bg-muted border border-border p-3 shadow-xl text-xs text-foreground"
+                  style={{ display: "none" }}
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-w-[270px] max-w-xs">
+                    <div>
+                      <span className="font-semibold block">A Shift:</span>
+                      <span>6:30 AM - 3:00 PM IST</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold block">B Shift:</span>
+                      <span>2:30 PM - 11:00 PM IST</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold block">C Shift:</span>
+                      <span>10:30 PM - 7:00 AM IST</span>
+                    </div>
+                  </div>
+                </div>
+              </span>
+            </h1>
           </div>
           <AddPipelineMonitoringModal onRecordAdded={handleRecordAdded} />
         </div>
       </header>
 
       {/* Shift Information */}
-      <div className="px-4 sm:px-6 py-4 bg-muted border-b border-border">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-sm">
-            <span className="font-semibold">A Shift:</span> 6:30 AM - 3:00 PM IST
-          </div>
-          <div className="text-sm">
-            <span className="font-semibold">B Shift:</span> 2:20 PM - 11:00 PM IST
-          </div>
-          <div className="text-sm">
-            <span className="font-semibold">C Shift:</span> 10:30 PM - 7:00 AM IST
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          * 30-minute overlap between shifts for handover calls
-        </p>
-      </div>
+      
 
       {/* Tabs for Failed and Fresh Triggers */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

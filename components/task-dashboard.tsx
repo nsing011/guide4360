@@ -21,7 +21,6 @@ import {
 import { TaskDetailModal } from "@/components/task-detail-modal"
 import { AddTaskModal } from "@/components/add-task-modal"
 import { CompleteTaskDialog } from "@/components/complete-task-dialog"
-import { ThemeToggle } from "@/components/theme-toggle"
 import type { Task } from "@/lib/types"
 
 const fetcher = async (url: string) => {
@@ -319,10 +318,9 @@ export function TaskDashboard() {
               <span className="hidden sm:inline">Monitoring</span>
               <span className="sm:hidden">Monitor</span>
             </Button>
-            <Badge variant="outline" className="hidden sm:inline-flex">
+            {/* <Badge variant="outline" className="hidden sm:inline-flex">
               {selectedTasks.size} selected
-            </Badge>
-            <ThemeToggle />
+            </Badge> */}
             <div className="border-b bg-card">
               <Button variant="outline" onClick={handleLogout} className="gap-2 bg-transparent">
                 <LogOut className="h-4 w-4" />
