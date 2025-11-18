@@ -41,6 +41,11 @@ export async function POST(request: NextRequest) {
             shiftIST: shift,
             adfPipelineName: pipeline.name,
             adfTriggerName: pipeline.triggerName, // Include trigger name
+            user: {
+              connect: {
+                id: session.userId,
+              },
+            },
           },
         })
         createdRecords.push(record)

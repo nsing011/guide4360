@@ -87,7 +87,7 @@ export function FileProcessor() {
     try {
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("retailer", retailer)
+      formData.append("supplier", retailer)
 
       // Create a mock progress tracker
       const progressInterval = setInterval(() => {
