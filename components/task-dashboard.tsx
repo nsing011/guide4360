@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
-import { Search, User, ChevronDown, Filter, SortAsc, SortDesc, LogOut, Calendar, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, User, ChevronDown, Filter, SortAsc, SortDesc, LogOut, Calendar, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -317,6 +317,15 @@ export function TaskDashboard() {
             >
               <span className="hidden sm:inline">Monitoring</span>
               <span className="sm:hidden">Monitor</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => router.push("/chatbot")}
+              className="gap-2 bg-transparent"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Assistant</span>
+              <span className="sm:hidden">Chat</span>
             </Button>
             {/* <Badge variant="outline" className="hidden sm:inline-flex">
               {selectedTasks.size} selected

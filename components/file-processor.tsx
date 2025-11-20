@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { Upload, Download, Loader2 } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { Upload, Download, Loader2, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 
 interface ProcessingProgress {
@@ -14,7 +15,15 @@ interface ProcessingProgress {
   progress: number
 }
 
-type retailerType = "london-drugs" | "walmart-ecom"
+type retailerType = "london-drugs" | "walmart-ecom" | "loblaws-pos-pcx" | "mbox-lclsdm-week-sales" | "mbox-lclsdm-pos-custom"
+
+const RETAILERS = [
+  { value: "london-drugs", label: "London Drugs" },
+  { value: "walmart-ecom", label: "Walmart ecom" },
+  { value: "loblaws-pos-pcx", label: "Loblaws POS PCX" },
+  { value: "mbox-lclsdm-week-sales", label: "MBOX LCLSDM week sales" },
+  { value: "mbox-lclsdm-pos-custom", label: "MBOX LCLSDM POS Custom" },
+]
 
 export function FileProcessor() {
   const [file, setFile] = useState<File | null>(null)
@@ -23,7 +32,30 @@ export function FileProcessor() {
   const [progress, setProgress] = useState<ProcessingProgress | null>(null)
   const [processedFile, setProcessedFile] = useState<Blob | null>(null)
   const [processedFileName, setProcessedFileName] = useState<string>("")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropZoneRef = useRef<HTMLDivElement>(null)
+
+  // Filter retailers based on search
+  const filteredRetailers = RETAILERS.filter((r) =>
+    r.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.value.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest("[data-dropdown]")) {
+        setIsDropdownOpen(false)
+      }
+    }
+
+    if (isDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+      return () => document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [isDropdownOpen])
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -88,6 +120,7 @@ export function FileProcessor() {
       const formData = new FormData()
       formData.append("file", file)
       formData.append("supplier", retailer)
+      formData.append("originalFileName", file.name)
 
       // Create a mock progress tracker
       const progressInterval = setInterval(() => {
@@ -194,29 +227,88 @@ export function FileProcessor() {
               </div>
 
               {file && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm font-medium text-blue-900">
-                    ✓ Selected: {file.name}
-                  </p>
-                  <p className="text-xs text-blue-700 mt-1">
-                    Size: {(file.size / 1024).toFixed(2)} KB
-                  </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-900">
+                      ✓ Selected: {file.name}
+                    </p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Size: {(file.size / 1024).toFixed(2)} KB
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setFile(null)}
+                    className="ml-2 text-blue-700 hover:text-blue-900 hover:bg-blue-100 p-2 rounded transition-colors"
+                    title="Remove file"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               )}
             </div>
 
-            {/* retailer Selection */}
+            {/* retailer Selection with Search */}
             <div className="space-y-3">
-              <Label htmlFor="retailer-select">Select retailer</Label>
-              <Select value={retailer} onValueChange={(value) => setretailer(value as retailerType)}>
-                <SelectTrigger id="retailer-select">
-                  <SelectValue placeholder="Choose a retailer..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="london-drugs">London Drugs</SelectItem>
-                  <SelectItem value="walmart-ecom">Walmart ecom</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="retailer-search">Select retailer</Label>
+              <div className="relative" data-dropdown>
+                <div className="relative">
+                  <Input
+                    id="retailer-search"
+                    placeholder="Search or select retailer..."
+                    value={searchTerm || (retailer ? RETAILERS.find((r) => r.value === retailer)?.label : "")}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value)
+                      setIsDropdownOpen(true)
+                    }}
+                    onFocus={() => setIsDropdownOpen(true)}
+                    className="pr-8"
+                  />
+                  {retailer && (
+                    <button
+                      onClick={() => {
+                        setretailer("")
+                        setSearchTerm("")
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown Menu */}
+                {isDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                    {filteredRetailers.length > 0 ? (
+                      filteredRetailers.map((r) => (
+                        <button
+                          key={r.value}
+                          onClick={() => {
+                            setretailer(r.value as retailerType)
+                            setSearchTerm("")
+                            setIsDropdownOpen(false)
+                          }}
+                          className={`w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors ${
+                            retailer === r.value ? "bg-blue-100 font-medium" : ""
+                          }`}
+                        >
+                          {r.label}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-2 text-sm text-gray-500">No retailers found</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {retailer && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm font-medium text-green-900">
+                    ✓ Selected: {RETAILERS.find((r) => r.value === retailer)?.label}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Processing Progress */}
