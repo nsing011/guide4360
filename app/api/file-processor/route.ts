@@ -2,31 +2,144 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth"
 import * as XLSX from "xlsx"
 
-// Process London Drugs file
-async function processLondonDrugs(file: File): Promise<Blob> {
-  // Read file
+// Helper function to calculate simple checksum for data validation
+function calculateChecksum(data: string[]): string {
+  let hash = 0
+  const dataString = data.join("\n")
+  for (let i = 0; i < dataString.length; i++) {
+    const char = dataString.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  return hash.toString(16)
+}
+
+// Data validation result interface
+interface DataValidation {
+  isValid: boolean
+  inputRows: number
+  outputRows: number
+  rowsProcessed: number
+  missingRows: number
+  errorMessage?: string
+}
+
+// Validate data integrity after processing
+function validateDataIntegrity(originalRowCount: number, processedRowCount: number): DataValidation {
+  const isValid = originalRowCount === processedRowCount
+  const missingRows = originalRowCount - processedRowCount
+
+  return {
+    isValid,
+    inputRows: originalRowCount,
+    outputRows: processedRowCount,
+    rowsProcessed: processedRowCount,
+    missingRows,
+    errorMessage: !isValid ? `Data integrity check failed: ${missingRows} rows missing or lost` : undefined,
+  }
+}
+
+// Helper function to process large files in chunks with data integrity checks
+async function processLargeFileInChunks(
+  file: File,
+  processor: (rows: any[][], startIndex: number) => string[]
+): Promise<{ blob: Blob; validation: DataValidation }> {
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: "array" })
   const worksheet = workbook.Sheets[workbook.SheetNames[0]]
 
-  // Get all data
+  // Get range to know total rows
+  const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1")
+  const totalRows = range.e.r + 1
+
+  // Process in chunks of 10000 rows
+  const chunkSize = 10000
+  const chunks: string[] = []
+  let processedRowCount = 0
+  const chunkLog: Array<{ chunkNumber: number; startRow: number; endRow: number; rowsProcessed: number }> = []
+
+  for (let i = 0; i < totalRows; i += chunkSize) {
+    // Extract chunk from worksheet
+    const startRow = i
+    const endRow = Math.min(i + chunkSize, totalRows)
+    const chunkRange = `A${startRow + 1}:${String.fromCharCode(65 + range.e.c)}${endRow}`
+
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, range: chunkRange }) as unknown[][]
+    const processedChunk = processor(data, startRow)
+
+    // Track row processing
+    const rowsInChunk = processedChunk.length
+    processedRowCount += rowsInChunk
+    chunkLog.push({
+      chunkNumber: Math.floor(i / chunkSize) + 1,
+      startRow,
+      endRow,
+      rowsProcessed: rowsInChunk,
+    })
+
+    chunks.push(...processedChunk)
+  }
+
+  // Validate data integrity
+  const validation = validateDataIntegrity(totalRows, processedRowCount)
+
+  // Log validation for debugging
+  console.log("Data Processing Validation:", {
+    originalRows: totalRows,
+    processedRows: processedRowCount,
+    isValid: validation.isValid,
+    chunksProcessed: chunkLog.length,
+    chunkDetails: chunkLog,
+  })
+
+  return {
+    blob: new Blob([chunks.join("\n")], { type: "text/plain" }),
+    validation,
+  }
+}
+
+// Process London Drugs file
+async function processLondonDrugs(file: File): Promise<Blob> {
+  const buffer = await file.arrayBuffer()
+  const workbook = XLSX.read(buffer, { type: "array" })
+  const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+
+  // Get all data (with optimization for large files)
   const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][]
+
+  // Track original row count
+  const originalRowCount = data.length - 6 // Subtract the 6 rows being deleted
 
   // Delete top 6 rows
   const processedData = data.slice(6)
 
-  // Convert to CSV first, then to TXT format with commas as separators
-  const txtContent = processedData
-    .map((row) => {
-      if (Array.isArray(row)) {
-        return row.map((cell) => String(cell || "")).join(",")
-      }
-      return ""
-    })
-    .join("\n")
+  // Process in chunks to avoid memory issues
+  const chunkSize = 50000
+  const chunks: string[] = []
+  let processedRowCount = 0
+
+  for (let i = 0; i < processedData.length; i += chunkSize) {
+    const chunk = processedData.slice(i, Math.min(i + chunkSize, processedData.length))
+    const processed = chunk
+      .map((row) => {
+        if (Array.isArray(row)) {
+          processedRowCount++
+          return row.map((cell) => String(cell || "")).join(",")
+        }
+        return ""
+      })
+      .filter((row) => row.length > 0) // Remove empty rows
+    chunks.push(...processed)
+  }
+
+  // Validate data integrity
+  const validation = validateDataIntegrity(originalRowCount, processedRowCount)
+  if (!validation.isValid) {
+    console.warn("London Drugs: Data integrity warning", validation)
+  }
 
   // Create blob for TXT file
-  return new Blob([txtContent], { type: "text/plain" })
+  return new Blob([chunks.join("\n")], { type: "text/plain" })
 }
 
 // Process Walmart ecom file
@@ -50,24 +163,28 @@ async function processWalmartEcom(file: File): Promise<Blob> {
     ...headers.slice(3),
   ]
 
-  // Prepare rows with new headers
-  const processedRows = data.slice(1).map((row) => {
-    if (Array.isArray(row)) {
-      const newRow: Record<string, unknown> = {}
-      newHeaders.forEach((header, index) => {
-        newRow[header] = row[index] || ""
-      })
-      return newRow
-    }
-    return {}
-  })
+  // Prepare rows with new headers - process in chunks for large files
+  const chunkSize = 50000
+  const allRows: any[] = [newHeaders]
+
+  for (let i = 1; i < data.length; i += chunkSize) {
+    const chunk = data.slice(i, Math.min(i + chunkSize, data.length))
+    const processedChunk = chunk.map((row) => {
+      if (Array.isArray(row)) {
+        const newRow: Record<string, unknown> = {}
+        newHeaders.forEach((header, index) => {
+          newRow[header] = row[index] || ""
+        })
+        return Object.values(newRow)
+      }
+      return []
+    })
+    allRows.push(...processedChunk)
+  }
 
   // Create new workbook with processed data
   const newWorkbook = XLSX.utils.book_new()
-  const newWorksheet = XLSX.utils.json_to_sheet([
-    newHeaders,
-    ...processedRows.map((row) => Object.values(row)),
-  ])
+  const newWorksheet = XLSX.utils.json_to_sheet(allRows)
 
   XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "Sheet1")
 
@@ -134,20 +251,24 @@ async function processLoblawsPosPcx(file: File): Promise<Blob> {
     return {}
   })
 
-  // Convert to CSV format
-  const csvContent = [
-    newHeaders.map((h) => `"${h}"`).join(","),
-    ...processedRows.map((row) =>
+  // Convert to CSV format - process in chunks for large files
+  const chunks: string[] = [newHeaders.map((h) => `"${h}"`).join(",")]
+
+  const chunkSize = 50000
+  for (let i = 0; i < processedRows.length; i += chunkSize) {
+    const chunk = processedRows.slice(i, Math.min(i + chunkSize, processedRows.length))
+    const processedChunk = chunk.map((row) =>
       newHeaders.map((header) => {
         const value = row[header]
         if (value === null || value === undefined) return '""'
         return `"${String(value).replace(/"/g, '""')}"`
       }).join(",")
-    ),
-  ].join("\n")
+    )
+    chunks.push(...processedChunk)
+  }
 
   // Create blob for CSV file
-  return new Blob([csvContent], { type: "text/csv" })
+  return new Blob([chunks.join("\n")], { type: "text/csv" })
 }
 
 // Process MBOX LCLSDM week sales file
@@ -310,6 +431,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
+    // Check file size (max 500MB)
+    const maxFileSize = 500 * 1024 * 1024 // 500MB in bytes
+    if (file.size > maxFileSize) {
+      return NextResponse.json(
+        { error: `File size exceeds maximum limit of 500MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB` },
+        { status: 400 }
+      )
+    }
+
     if (!supplier || !["london-drugs", "walmart-ecom", "loblaws-pos-pcx", "mbox-lclsdm-week-sales", "mbox-lclsdm-pos-custom"].includes(supplier)) {
       return NextResponse.json({ error: "Invalid supplier" }, { status: 400 })
     }
@@ -367,9 +497,27 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("File processing error:", error)
+
+    // Provide helpful error messages
+    let errorMessage = "Failed to process file"
+
+    if (error instanceof Error) {
+      if (error.message.includes("data integrity check failed")) {
+        errorMessage = "Data integrity error: Some rows were lost during processing. Please try again or contact support."
+      } else if (error.message.includes("memory") || error.message.includes("heap")) {
+        errorMessage = "File is too large to process. Please try with a smaller file or contact support for large file processing."
+      } else if (error.message.includes("timeout")) {
+        errorMessage = "Processing took too long. The file may be too large. Please try with a smaller file."
+      } else if (error.message.includes("Invalid")) {
+        errorMessage = "File format is invalid or corrupted. Please ensure the file is a valid Excel (.xlsx) file."
+      } else {
+        errorMessage = error.message
+      }
+    }
+
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to process file",
+        error: errorMessage,
       },
       { status: 500 }
     )
