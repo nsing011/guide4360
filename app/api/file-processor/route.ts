@@ -52,8 +52,8 @@ async function processLargeFileInChunks(
   const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1")
   const totalRows = range.e.r + 1
 
-  // Process in chunks of 10000 rows
-  const chunkSize = 10000
+  // Process in chunks of 250000 rows
+  const chunkSize = 250000
   const chunks: string[] = []
   let processedRowCount = 0
   const chunkLog: Array<{ chunkNumber: number; startRow: number; endRow: number; rowsProcessed: number }> = []
@@ -114,7 +114,7 @@ async function processLondonDrugs(file: File): Promise<Blob> {
   const processedData = data.slice(6)
 
   // Process in chunks to avoid memory issues
-  const chunkSize = 50000
+  const chunkSize = 250000
   const chunks: string[] = []
   let processedRowCount = 0
 
@@ -164,7 +164,7 @@ async function processWalmartEcom(file: File): Promise<Blob> {
   ]
 
   // Prepare rows with new headers - process in chunks for large files
-  const chunkSize = 50000
+  const chunkSize = 250000
   const allRows: any[] = [newHeaders]
 
   for (let i = 1; i < data.length; i += chunkSize) {
@@ -254,7 +254,7 @@ async function processLoblawsPosPcx(file: File): Promise<Blob> {
   // Convert to CSV format - process in chunks for large files
   const chunks: string[] = [newHeaders.map((h) => `"${h}"`).join(",")]
 
-  const chunkSize = 50000
+  const chunkSize = 250000
   for (let i = 0; i < processedRows.length; i += chunkSize) {
     const chunk = processedRows.slice(i, Math.min(i + chunkSize, processedRows.length))
     const processedChunk = chunk.map((row) =>
